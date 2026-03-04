@@ -22,6 +22,11 @@ logs/
 Thumbs.db
 .idea/
 *.swp
+.cursor/
+.codex/
+.claude/
+.gemini/
+.antigravity/
 
 # AIOS Local (AIOS)
 .aios-core/local/

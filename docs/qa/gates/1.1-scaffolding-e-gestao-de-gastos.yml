@@ -1,0 +1,103 @@
+schema: 1
+story: '1.1'
+story_title: 'Scaffolding e Gestão de Gastos'
+gate: CONCERNS
+status_reason: >
+  Um bug de timezone MEDIUM foi identificado em getExpensesByMonth e na função today()
+  — ambos corrigidos diretamente pelo QA durante a revisão. Gate CONCERNS registrado
+  porque o bug existia na implementação entregue. Dois itens LOW (acessibilidade,
+  feedback de validação) permanecem para backlog. Story atende todos os 10 ACs.
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-03-03T00:00:00.000Z'
+
+top_issues:
+  - id: TZ-001
+    severity: medium
+    title: 'Timezone bug em getExpensesByMonth'
+    description: >
+      new Date("YYYY-MM-DD") interpreta date-only strings como UTC midnight.
+      Em UTC-3 (Brasil), o primeiro dia de cada mês era filtrado no mês anterior.
+    file: 'kekel-finance/src/store/useFinanceStore.ts'
+    line: 46
+    status: FIXED
+    suggested_owner: dev
+    fix_applied: 'Parsing direto via e.date.split("-").map(Number)'
+
+  - id: TZ-002
+    severity: medium
+    title: 'today() retorna data UTC em vez de data local'
+    description: >
+      toISOString().split("T")[0] retorna a data em UTC, não a data local do usuário.
+      Após 21h no Brasil, o campo Data do formulário exibiria a data de amanhã.
+    file: 'kekel-finance/src/components/expenses/ExpenseForm.tsx'
+    line: 10
+    status: FIXED
+    suggested_owner: dev
+    fix_applied: 'Construção manual de YYYY-MM-DD com getFullYear/getMonth/getDate local'
+
+  - id: A11Y-001
+    severity: low
+    title: 'Select de filtro de categoria sem label acessível'
+    description: >
+      O dropdown de filtro por categoria em ExpensesPage não tem <label> associado
+      nem aria-label, reduzindo acessibilidade para leitores de tela.
+    file: 'kekel-finance/src/pages/ExpensesPage.tsx'
+    line: 69
+    status: OPEN
+    suggested_owner: dev
+
+  - id: UX-001
+    severity: low
+    title: 'Sem feedback visual em falha de validação JS do formulário'
+    description: >
+      handleSubmit retorna silenciosamente quando parsedAmount <= 0 ou categoryId vazio.
+      HTML5 nativo cobre a maioria dos casos, mas falhas JS não têm mensagem de erro.
+    file: 'kekel-finance/src/components/expenses/ExpenseForm.tsx'
+    line: 32
+    status: OPEN
+    suggested_owner: dev
+
+waiver:
+  active: false
+
+quality_score: 85
+expires: '2026-03-17T00:00:00.000Z'
+
+evidence:
+  tests_reviewed: 0
+  risks_identified: 4
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: >
+      Dados apenas em localStorage do usuário. Sem APIs externas, sem transmissão
+      de dados sensíveis. window.confirm adequado para MVP.
+  performance:
+    status: PASS
+    notes: >
+      Iteração linear sobre expenses é adequada para volumes de app pessoal.
+      Zustand persist comportamento esperado. Intl.NumberFormat sem cache — aceitável.
+  reliability:
+    status: PASS
+    notes: >
+      Persist garante dados sobrevivem F5. Seed de categorias padrão robusto.
+      Bugs de timezone corrigidos durante review.
+  maintainability:
+    status: PASS
+    notes: >
+      Código limpo, self-documenting, sem dependências externas desnecessárias.
+      Estrutura de arquivos segue exatamente o prescrito. TypeScript strict mode ativo.
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Adicionar aria-label ao select de filtro de categoria'
+      refs: ['kekel-finance/src/pages/ExpensesPage.tsx']
+    - action: 'Exibir mensagem de erro explícita em falha de validação JS'
+      refs: ['kekel-finance/src/components/expenses/ExpenseForm.tsx']
+    - action: 'Considerar framework de testes (Vitest + Testing Library) em story futura'
+      refs: []

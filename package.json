@@ -4,11 +4,11 @@
   "description": "Kekel Finance — AIOS Project",
   "private": true,
   "scripts": {
-    "dev": "echo 'No dev server configured yet'",
-    "build": "echo 'No build configured yet'",
-    "test": "echo 'No tests configured yet'",
-    "lint": "echo 'No linter configured yet'",
-    "typecheck": "echo 'No typecheck configured yet'"
+    "dev": "npm run dev --prefix kekel-finance",
+    "build": "npm run build --prefix kekel-finance",
+    "test": "npm run test --prefix kekel-finance",
+    "lint": "npm run lint --prefix kekel-finance",
+    "typecheck": "npm run typecheck --prefix kekel-finance"
   },
   "engines": {
     "node": ">=18.0.0"
