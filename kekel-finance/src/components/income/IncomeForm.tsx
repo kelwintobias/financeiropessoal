@@ -15,6 +15,8 @@ export default function IncomeForm({ editing, onClose }: IncomeFormProps) {
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '')
   const [type, setType] = useState<Income['type']>(editing?.type ?? 'fixed')
   const [month, setMonth] = useState(editing?.month ?? currentMonth())
+  const [paymentDay, setPaymentDay] = useState(editing?.paymentDay ? String(editing.paymentDay) : '')
+  const [isRecurring, setIsRecurring] = useState(editing?.isRecurring ?? false)
 
   useEffect(() => {
     if (editing) {
@@ -22,6 +24,8 @@ export default function IncomeForm({ editing, onClose }: IncomeFormProps) {
       setAmount(String(editing.amount))
       setType(editing.type)
       setMonth(editing.month)
+      setPaymentDay(editing.paymentDay ? String(editing.paymentDay) : '')
+      setIsRecurring(editing.isRecurring)
     }
   }, [editing])
 
@@ -30,11 +34,14 @@ export default function IncomeForm({ editing, onClose }: IncomeFormProps) {
     const parsedAmount = parseFloat(amount)
     if (!parsedAmount || parsedAmount <= 0 || !description.trim()) return
 
+    const parsedDay = parseInt(paymentDay)
     const payload = {
       description: description.trim(),
       amount: parsedAmount,
       type,
       month,
+      paymentDay: parsedDay >= 1 && parsedDay <= 31 ? parsedDay : undefined,
+      isRecurring,
     }
 
     if (editing) {
@@ -117,6 +124,36 @@ export default function IncomeForm({ editing, onClose }: IncomeFormProps) {
               onChange={(e) => setMonth(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Dia de recebimento (opcional)
+            </label>
+            <select
+              value={paymentDay}
+              onChange={(e) => setPaymentDay(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Não informado</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>Dia {d}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Qual dia do mês esse valor cai na sua conta?</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="isRecurring"
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+              className="w-4 h-4 text-green-600 rounded"
+            />
+            <label htmlFor="isRecurring" className="text-sm text-gray-700">
+              Esse valor se repete todo mês
+            </label>
           </div>
 
           <button

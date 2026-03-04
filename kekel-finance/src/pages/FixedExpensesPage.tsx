@@ -39,9 +39,12 @@ export default function FixedExpensesPage() {
       <div key={fe.id} className={`flex items-center justify-between px-4 py-3 ${!fe.isActive ? 'opacity-50' : ''}`}>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-800 text-sm truncate">{fe.description}</p>
-          {catName && (
-            <p className="text-xs text-gray-400">{catName}</p>
-          )}
+          <div className="flex items-center gap-2 mt-0.5">
+            {catName && <span className="text-xs text-gray-400">{catName}</span>}
+            {fe.billingDay && (
+              <span className="text-xs text-blue-500 font-medium">vence dia {fe.billingDay}</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 ml-2">
           <span className="font-semibold text-gray-700 text-sm">{formatBRL(fe.amount)}</span>

@@ -70,13 +70,21 @@ export default function IncomePage() {
             <div key={inc.id} className="flex items-center justify-between px-4 py-3">
               <div>
                 <p className="font-medium text-gray-800 text-sm">{inc.description}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  inc.type === 'fixed'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-purple-100 text-purple-700'
-                }`}>
-                  {inc.type === 'fixed' ? 'Fixa' : 'Variável'}
-                </span>
+                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    inc.type === 'fixed'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-purple-100 text-purple-700'
+                  }`}>
+                    {inc.type === 'fixed' ? 'Fixa' : 'Variável'}
+                  </span>
+                  {inc.paymentDay && (
+                    <span className="text-xs text-gray-400">dia {inc.paymentDay}</span>
+                  )}
+                  {inc.isRecurring && (
+                    <span className="text-xs text-green-600">recorrente</span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-green-700">{formatBRL(inc.amount)}</span>

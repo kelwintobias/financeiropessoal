@@ -11,6 +11,7 @@ export interface Expense {
   description?: string
   categoryId: string
   date: string
+  paymentMethod: 'card' | 'cash'
   createdAt: string
 }
 
@@ -37,6 +38,8 @@ export interface Income {
   amount: number
   type: 'fixed' | 'variable'
   month: string       // 'YYYY-MM'
+  paymentDay?: number   // dia do mês em que cai o pagamento (1-31)
+  isRecurring: boolean  // se é recorrente mensal
   createdAt: string
 }
 
@@ -45,7 +48,18 @@ export interface FixedExpense {
   description: string
   amount: number
   categoryId?: string
+  billingDay?: number   // dia do mês em que é cobrado (1–31)
+  paymentMethod: 'card' | 'cash'
   isActive: boolean
+  createdAt: string
+}
+
+export interface CreditCard {
+  id: string
+  name: string
+  closingDay: number
+  paymentDay: number
+  creditLimit?: number
   createdAt: string
 }
 
@@ -56,6 +70,7 @@ export interface FinanceStore {
   goals: Goal[]
   incomes: Income[]
   fixedExpenses: FixedExpense[]
+  creditCard: CreditCard | null
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
   updateExpense: (id: string, expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
   deleteExpense: (id: string) => void | Promise<void>
@@ -77,4 +92,5 @@ export interface FinanceStore {
   deleteFixedExpense: (id: string) => void | Promise<void>
   toggleFixedExpense: (id: string) => void | Promise<void>
   getTotalFixedExpenses: () => number
+  saveCreditCard: (data: Omit<CreditCard, 'id' | 'createdAt'>) => void | Promise<void>
 }

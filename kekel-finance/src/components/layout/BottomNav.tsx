@@ -5,7 +5,7 @@ const NAV_ITEMS = [
   { to: '/income',   icon: '💰', label: 'Renda'    },
   { to: '/expenses', icon: '💸', label: 'Gastos'   },
   { to: '/fixed',    icon: '📋', label: 'Fixos'    },
-  { to: '/goals',    icon: '🎯', label: 'Metas'    },
+  { to: '/card',     icon: '💳', label: 'Cartão'   },
 ]
 
 export default function BottomNav() {

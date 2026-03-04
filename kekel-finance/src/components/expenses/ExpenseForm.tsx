@@ -20,6 +20,7 @@ export default function ExpenseForm({ editing, onClose, onAfterSave }: ExpenseFo
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? categories[0]?.id ?? '')
   const [description, setDescription] = useState(editing?.description ?? '')
   const [date, setDate] = useState(editing?.date ?? today())
+  const [paymentMethod, setPaymentMethod] = useState<Expense['paymentMethod']>(editing?.paymentMethod ?? 'card')
 
   useEffect(() => {
     if (editing) {
@@ -27,6 +28,7 @@ export default function ExpenseForm({ editing, onClose, onAfterSave }: ExpenseFo
       setCategoryId(editing.categoryId)
       setDescription(editing.description ?? '')
       setDate(editing.date)
+      setPaymentMethod(editing.paymentMethod)
     }
   }, [editing])
 
@@ -40,6 +42,7 @@ export default function ExpenseForm({ editing, onClose, onAfterSave }: ExpenseFo
       categoryId,
       description: description.trim() || undefined,
       date,
+      paymentMethod,
     }
 
     if (editing) {
@@ -82,6 +85,36 @@ export default function ExpenseForm({ editing, onClose, onAfterSave }: ExpenseFo
               required
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Forma de pagamento <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-3">
+              <label className={`flex-1 flex items-center justify-center gap-2 border rounded-lg py-2 px-3 cursor-pointer transition-colors ${paymentMethod === 'card' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600'}`}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="card"
+                  checked={paymentMethod === 'card'}
+                  onChange={() => setPaymentMethod('card')}
+                  className="sr-only"
+                />
+                <span>Cartão</span>
+              </label>
+              <label className={`flex-1 flex items-center justify-center gap-2 border rounded-lg py-2 px-3 cursor-pointer transition-colors ${paymentMethod === 'cash' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-300 text-gray-600'}`}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="cash"
+                  checked={paymentMethod === 'cash'}
+                  onChange={() => setPaymentMethod('cash')}
+                  className="sr-only"
+                />
+                <span>Dinheiro/PIX</span>
+              </label>
+            </div>
           </div>
 
           <div>
