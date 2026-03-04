@@ -31,11 +31,31 @@ export interface Goal {
   createdAt: string
 }
 
+export interface Income {
+  id: string
+  description: string
+  amount: number
+  type: 'fixed' | 'variable'
+  month: string       // 'YYYY-MM'
+  createdAt: string
+}
+
+export interface FixedExpense {
+  id: string
+  description: string
+  amount: number
+  categoryId?: string
+  isActive: boolean
+  createdAt: string
+}
+
 export interface FinanceStore {
   categories: Category[]
   expenses: Expense[]
   budgets: Budget[]
   goals: Goal[]
+  incomes: Income[]
+  fixedExpenses: FixedExpense[]
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
   updateExpense: (id: string, expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
   deleteExpense: (id: string) => void | Promise<void>
@@ -48,5 +68,13 @@ export interface FinanceStore {
   updateGoal: (id: string, data: Partial<Goal>) => void | Promise<void>
   deleteGoal: (id: string) => void | Promise<void>
   addContribution: (goalId: string, amount: number) => void | Promise<void>
+  addIncome: (income: Omit<Income, 'id' | 'createdAt'>) => void | Promise<void>
+  updateIncome: (id: string, data: Partial<Omit<Income, 'id' | 'createdAt'>>) => void | Promise<void>
+  deleteIncome: (id: string) => void | Promise<void>
+  getIncomeByMonth: (month: string) => Income[]
+  addFixedExpense: (fe: Omit<FixedExpense, 'id' | 'createdAt'>) => void | Promise<void>
+  updateFixedExpense: (id: string, data: Partial<Omit<FixedExpense, 'id' | 'createdAt'>>) => void | Promise<void>
+  deleteFixedExpense: (id: string) => void | Promise<void>
+  toggleFixedExpense: (id: string) => void | Promise<void>
+  getTotalFixedExpenses: () => number
 }
-

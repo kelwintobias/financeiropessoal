@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
-import type { Category, Expense, Budget, Goal, FinanceStore } from '@/types'
+import type { Category, Expense, Budget, Goal, Income, FixedExpense, FinanceStore } from '@/types'
 
 // ── helpers: snake_case ↔ camelCase mapping ──────────────────────────
 
@@ -37,6 +37,24 @@ const mapGoalFromDB = (row: Record<string, unknown>): Goal => ({
   createdAt: row.created_at as string,
 })
 
+const mapIncomeFromDB = (row: Record<string, unknown>): Income => ({
+  id: row.id as string,
+  description: row.description as string,
+  amount: Number(row.amount),
+  type: row.type as Income['type'],
+  month: row.month as string,
+  createdAt: row.created_at as string,
+})
+
+const mapFixedExpenseFromDB = (row: Record<string, unknown>): FixedExpense => ({
+  id: row.id as string,
+  description: row.description as string,
+  amount: Number(row.amount),
+  categoryId: (row.category_id as string) ?? undefined,
+  isActive: row.is_active as boolean,
+  createdAt: row.created_at as string,
+})
+
 // ── Store ────────────────────────────────────────────────────────────
 
 export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydrate: () => Promise<void> }>()((set, get) => ({
@@ -45,14 +63,18 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
   expenses: [],
   budgets: [],
   goals: [],
+  incomes: [],
+  fixedExpenses: [],
 
   // ── Bootstrap — load everything from Supabase ──
   _hydrate: async () => {
-    const [catRes, expRes, budRes, goalRes] = await Promise.all([
+    const [catRes, expRes, budRes, goalRes, incRes, feRes] = await Promise.all([
       supabase.from('categories').select('*').order('name'),
       supabase.from('expenses').select('*').order('date', { ascending: false }),
       supabase.from('budgets').select('*'),
       supabase.from('goals').select('*').order('created_at', { ascending: false }),
+      supabase.from('incomes').select('*').order('created_at', { ascending: false }),
+      supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
     ])
 
     set({
@@ -61,6 +83,8 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       expenses: (expRes.data ?? []).map(mapExpenseFromDB),
       budgets: (budRes.data ?? []).map(mapBudgetFromDB),
       goals: (goalRes.data ?? []).map(mapGoalFromDB),
+      incomes: (incRes.data ?? []).map(mapIncomeFromDB),
+      fixedExpenses: (feRes.data ?? []).map(mapFixedExpenseFromDB),
     })
   },
 
@@ -221,6 +245,112 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       }))
     }
   },
+
+  // ── Incomes ──
+  addIncome: async (income) => {
+    const { data, error } = await supabase
+      .from('incomes')
+      .insert({
+        description: income.description,
+        amount: income.amount,
+        type: income.type,
+        month: income.month,
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      const mapped = mapIncomeFromDB(data)
+      set((state) => ({ incomes: [mapped, ...state.incomes] }))
+    }
+  },
+
+  updateIncome: async (id, data) => {
+    const updatePayload: Record<string, unknown> = {}
+    if (data.description !== undefined) updatePayload.description = data.description
+    if (data.amount !== undefined) updatePayload.amount = data.amount
+    if (data.type !== undefined) updatePayload.type = data.type
+    if (data.month !== undefined) updatePayload.month = data.month
+
+    const { error } = await supabase.from('incomes').update(updatePayload).eq('id', id)
+    if (!error) {
+      set((state) => ({
+        incomes: state.incomes.map((inc) => (inc.id === id ? { ...inc, ...data } : inc)),
+      }))
+    }
+  },
+
+  deleteIncome: async (id) => {
+    const { error } = await supabase.from('incomes').delete().eq('id', id)
+    if (!error) {
+      set((state) => ({ incomes: state.incomes.filter((inc) => inc.id !== id) }))
+    }
+  },
+
+  getIncomeByMonth: (month) =>
+    get().incomes.filter((inc) => inc.month === month),
+
+  // ── Fixed Expenses ──
+  addFixedExpense: async (fe) => {
+    const { data, error } = await supabase
+      .from('fixed_expenses')
+      .insert({
+        description: fe.description,
+        amount: fe.amount,
+        category_id: fe.categoryId ?? null,
+        is_active: fe.isActive,
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      const mapped = mapFixedExpenseFromDB(data)
+      set((state) => ({ fixedExpenses: [mapped, ...state.fixedExpenses] }))
+    }
+  },
+
+  updateFixedExpense: async (id, data) => {
+    const updatePayload: Record<string, unknown> = {}
+    if (data.description !== undefined) updatePayload.description = data.description
+    if (data.amount !== undefined) updatePayload.amount = data.amount
+    if (data.categoryId !== undefined) updatePayload.category_id = data.categoryId ?? null
+    if (data.isActive !== undefined) updatePayload.is_active = data.isActive
+
+    const { error } = await supabase.from('fixed_expenses').update(updatePayload).eq('id', id)
+    if (!error) {
+      set((state) => ({
+        fixedExpenses: state.fixedExpenses.map((fe) => (fe.id === id ? { ...fe, ...data } : fe)),
+      }))
+    }
+  },
+
+  deleteFixedExpense: async (id) => {
+    const { error } = await supabase.from('fixed_expenses').delete().eq('id', id)
+    if (!error) {
+      set((state) => ({ fixedExpenses: state.fixedExpenses.filter((fe) => fe.id !== id) }))
+    }
+  },
+
+  toggleFixedExpense: async (id) => {
+    const fe = get().fixedExpenses.find((f) => f.id === id)
+    if (!fe) return
+    const newActive = !fe.isActive
+    const { error } = await supabase
+      .from('fixed_expenses')
+      .update({ is_active: newActive })
+      .eq('id', id)
+
+    if (!error) {
+      set((state) => ({
+        fixedExpenses: state.fixedExpenses.map((f) =>
+          f.id === id ? { ...f, isActive: newActive } : f
+        ),
+      }))
+    }
+  },
+
+  getTotalFixedExpenses: () =>
+    get().fixedExpenses.filter((fe) => fe.isActive).reduce((sum, fe) => sum + fe.amount, 0),
 }))
 
 // ── Auto-hydrate on app start ──

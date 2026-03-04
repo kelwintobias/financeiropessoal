@@ -2,8 +2,9 @@ import { NavLink } from 'react-router-dom'
 
 const NAV_ITEMS = [
   { to: '/',         icon: '🏠', label: 'Início'   },
+  { to: '/income',   icon: '💰', label: 'Renda'    },
   { to: '/expenses', icon: '💸', label: 'Gastos'   },
-  { to: '/budget',   icon: '📊', label: 'Orçamento' },
+  { to: '/fixed',    icon: '📋', label: 'Fixos'    },
   { to: '/goals',    icon: '🎯', label: 'Metas'    },
 ]
 

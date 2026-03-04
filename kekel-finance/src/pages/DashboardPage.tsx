@@ -7,45 +7,98 @@ import GoalCard from '@/components/goals/GoalCard'
 const formatBRL = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+function formatMonthLabel(month: string) {
+  const [year, m] = month.split('-')
+  return `${MONTH_NAMES[Number(m) - 1]} ${year}`
+}
+
 export default function DashboardPage() {
-  const { expenses, budgets, categories, goals } = useFinanceStore()
+  const { expenses, categories, goals, incomes, fixedExpenses } = useFinanceStore()
   const month = currentMonth()
 
-  // Section 1 — Monthly summary
-  const monthExpenses = expenses.filter((e) => e.date.startsWith(month))
-  const totalSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0)
-  const monthBudgets = budgets.filter((b) => b.month === month)
-  const totalBudget = monthBudgets.reduce((sum, b) => sum + b.limitAmount, 0)
-  const budgetPercent = totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0
-  const budgetStatus =
-    totalBudget > 0 && totalSpent > totalBudget ? 'exceeded' :
-    totalBudget > 0 && (totalSpent / totalBudget) >= 0.8 ? 'warning' : 'safe'
+  // Income totals for current month
+  const monthIncomes = incomes.filter((inc) => inc.month === month)
+  const fixedIncome = monthIncomes.filter((inc) => inc.type === 'fixed').reduce((sum, inc) => sum + inc.amount, 0)
+  const variableIncome = monthIncomes.filter((inc) => inc.type === 'variable').reduce((sum, inc) => sum + inc.amount, 0)
+  const totalIncome = fixedIncome + variableIncome
 
-  // Section 3 — Active goals (max 3)
+  // Fixed expenses total (active templates)
+  const totalFixed = fixedExpenses.filter((fe) => fe.isActive).reduce((sum, fe) => sum + fe.amount, 0)
+
+  // Variable expenses for current month
+  const monthExpenses = expenses.filter((e) => e.date.startsWith(month))
+  const totalVariable = monthExpenses.reduce((sum, e) => sum + e.amount, 0)
+
+  // Totals
+  const totalExpenses = totalFixed + totalVariable
+  const balance = totalIncome - totalExpenses
+  const margin = Math.max(0, balance)
+
+  // Active goals (max 3)
   const activeGoals = goals.filter((g) => g.status === 'active').slice(0, 3)
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6 pb-24">
       <h1 className="text-xl font-bold text-gray-800 mb-4">🏠 Dashboard</h1>
 
-      {/* Section 1 — Resumo do mês */}
-      <section role="region" aria-labelledby="month-summary-heading" className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-        <h2 id="month-summary-heading" className="font-semibold text-gray-700 mb-3">Resumo do mês</h2>
-        <div className="flex justify-between text-sm text-gray-600 mb-1">
-          <span>Total gasto: <strong>{formatBRL(totalSpent)}</strong></span>
-          <span>{totalBudget > 0 ? `Orçamento: ${formatBRL(totalBudget)}` : 'Sem orçamento definido'}</span>
-        </div>
-        {totalBudget > 0 && (
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-2" role="progressbar" aria-valuenow={Math.round(budgetPercent)} aria-valuemin={0} aria-valuemax={100} aria-label="Progresso do orçamento mensal">
-            <div
-              className={`h-2 rounded-full transition-all ${
-                budgetStatus === 'exceeded' ? 'bg-red-500' :
-                budgetStatus === 'warning' ? 'bg-yellow-400' : 'bg-green-500'
-              }`}
-              style={{ width: `${budgetPercent}%` }}
-            />
+      {/* Section 1 — Resumo Financeiro */}
+      <section role="region" aria-labelledby="finance-summary-heading" className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+        <h2 id="finance-summary-heading" className="font-semibold text-gray-700 mb-3">
+          Resumo Financeiro — {formatMonthLabel(month)}
+        </h2>
+
+        {/* Receita */}
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Receita</p>
+          <div className="flex justify-between text-sm text-gray-600 mb-0.5">
+            <span>Renda fixa</span>
+            <span>{formatBRL(fixedIncome)}</span>
           </div>
-        )}
+          <div className="flex justify-between text-sm text-gray-600 mb-1">
+            <span>Renda variável</span>
+            <span>{formatBRL(variableIncome)}</span>
+          </div>
+          <div className="flex justify-between text-sm font-semibold text-green-700 border-t border-gray-100 pt-1">
+            <span>Total</span>
+            <span>{formatBRL(totalIncome)}</span>
+          </div>
+        </div>
+
+        {/* Despesas */}
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Despesas</p>
+          <div className="flex justify-between text-sm text-gray-600 mb-0.5">
+            <span>Gastos fixos</span>
+            <span>{formatBRL(totalFixed)}</span>
+          </div>
+          <div className="flex justify-between text-sm text-gray-600 mb-1">
+            <span>Gastos variáveis</span>
+            <span>{formatBRL(totalVariable)}</span>
+          </div>
+          <div className="flex justify-between text-sm font-semibold text-red-600 border-t border-gray-100 pt-1">
+            <span>Total</span>
+            <span>{formatBRL(totalExpenses)}</span>
+          </div>
+        </div>
+
+        {/* Saldo */}
+        <div className={`rounded-lg p-3 ${balance >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+          <div className={`flex justify-between text-base font-bold ${balance >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+            <span>Saldo disponível</span>
+            <span>{formatBRL(balance)}</span>
+          </div>
+          {balance >= 0 && (
+            <div className="flex justify-between text-sm text-green-600 mt-1">
+              <span>Margem p/ gastar</span>
+              <span>{formatBRL(margin)}</span>
+            </div>
+          )}
+        </div>
       </section>
 
       {/* Section 2 — Gastos por categoria */}
