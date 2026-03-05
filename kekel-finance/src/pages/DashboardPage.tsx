@@ -138,11 +138,11 @@ export default function DashboardPage() {
     incomePending,
     incomeList,
     accountBalance,
-    faturaBill,
+    realAccountBalance,
     totalFixedActive,
-    expensesCurrentMonth,
-    gastosPrevistosCurrentMonth,
-    incomeBeforeClosing,
+    plannedCard,
+    plannedCash,
+    incomeBeforePayment,
     quantoPodeGastar,
   } = forecast
 
@@ -214,28 +214,22 @@ export default function DashboardPage() {
             <span>Saldo atual</span>
             <span className="font-medium text-gray-800">{formatBRL(accountBalance)}</span>
           </div>
-          {incomeBeforeClosing > 0 && (
+          {incomeBeforePayment > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>+ Renda a receber (antes do fechamento)</span>
-              <span className="font-medium text-green-700">+ {formatBRL(incomeBeforeClosing)}</span>
+              <span>+ Renda a receber (antes do pagamento)</span>
+              <span className="font-medium text-green-700">+ {formatBRL(incomeBeforePayment)}</span>
             </div>
           )}
           <div className="flex justify-between text-gray-500">
-            <span>- Fatura (cartão)</span>
-            <span className="text-red-500">- {formatBRL(faturaBill)}</span>
+            <span>- Fatura total (cartão + fixos + previstos)</span>
+            <span className="text-red-500">- {formatBRL(cardBillForecast)}</span>
           </div>
-          <div className="flex justify-between text-gray-500">
-            <span>- Custos fixos</span>
-            <span className="text-red-500">- {formatBRL(totalFixedActive)}</span>
-          </div>
-          <div className="flex justify-between text-gray-500">
-            <span>- Gastos do mês</span>
-            <span className="text-red-500">- {formatBRL(expensesCurrentMonth)}</span>
-          </div>
-          <div className="flex justify-between text-gray-500">
-            <span>- Gastos previstos</span>
-            <span className="text-orange-500">- {formatBRL(gastosPrevistosCurrentMonth)}</span>
-          </div>
+          {plannedCash > 0 && (
+            <div className="flex justify-between text-gray-500">
+              <span>- Gastos previstos (Pix/Dinheiro)</span>
+              <span className="text-orange-500">- {formatBRL(plannedCash)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-gray-500 items-center">
             <span>- Meta de saldo</span>
             <EditableAmount
@@ -250,9 +244,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Legacy spending power (saldo - fatura) */}
+        {/* Referência rápida: saldo - fatura */}
         <div className="mt-3 pt-2 border-t border-gray-200 flex justify-between text-xs text-gray-400">
-          <span>Saldo - fatura</span>
+          <span>Saldo - fatura total</span>
           <span className={spendingPower >= 0 ? 'text-green-600' : 'text-red-500'}>{formatBRL(spendingPower)}</span>
         </div>
       </section>
@@ -281,13 +275,23 @@ export default function DashboardPage() {
                   label="Fatura atual"
                 />
               </div>
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Previsão no fechamento {closingDate ? `(dia ${formatDay(closingDate)})` : ''}</span>
-                <span className="font-medium text-orange-600">{formatBRL(cardBillForecast)}</span>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>+ Custos fixos ativos</span>
+                <span>{formatBRL(totalFixedActive)}</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-600">
+              {plannedCard > 0 && (
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>+ Gastos previstos (cartão)</span>
+                  <span>{formatBRL(plannedCard)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-semibold border-t border-gray-100 pt-1.5 text-gray-700">
+                <span>= Fatura total prevista</span>
+                <span className="text-orange-600">{formatBRL(cardBillForecast)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-400 pt-1">
+                <span>Fechamento {closingDate ? `dia ${formatDay(closingDate)}` : ''} ({daysUntilClosing}d)</span>
                 <span>Pagamento em {daysUntilPayment} dias {paymentDate ? `(dia ${formatDay(paymentDate)})` : ''}</span>
-                <span className="font-medium text-gray-500">Fecha em {daysUntilClosing}d</span>
               </div>
             </div>
 
@@ -328,26 +332,33 @@ export default function DashboardPage() {
         ) : (
           <>
             <div className="space-y-2 mb-3">
-              {incomeList.map(({ income, received }) => (
-                <div key={income.id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className={received ? 'text-green-500' : 'text-gray-300'}>
-                      {received ? '✓' : '○'}
-                    </span>
-                    <span className={received ? 'text-gray-700' : 'text-gray-500'}>
-                      {income.description}
-                    </span>
-                    {income.paymentDay && (
-                      <span className="text-xs text-gray-400">
-                        (dia {income.paymentDay})
+              {incomeList.map(({ income, received, isProjected }, idx) => {
+                const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+                const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+                const projLabel = isProjected && income.paymentDay
+                  ? `dia ${income.paymentDay}/${monthNames[nextMonth.getMonth()]}`
+                  : income.paymentDay ? `dia ${income.paymentDay}` : null
+
+                return (
+                  <div key={`${income.id}-${idx}`} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className={received ? 'text-green-500' : isProjected ? 'text-blue-400' : 'text-gray-300'}>
+                        {received ? '✓' : isProjected ? '→' : '○'}
                       </span>
-                    )}
+                      <span className={received ? 'text-gray-700' : isProjected ? 'text-blue-600' : 'text-gray-500'}>
+                        {income.description}
+                        {isProjected && <span className="text-xs text-blue-400 ml-1">(próximo ciclo)</span>}
+                      </span>
+                      {projLabel && (
+                        <span className="text-xs text-gray-400">({projLabel})</span>
+                      )}
+                    </div>
+                    <span className={`font-medium ${received ? 'text-green-700' : isProjected ? 'text-blue-600' : 'text-gray-500'}`}>
+                      {formatBRL(income.amount)}
+                    </span>
                   </div>
-                  <span className={`font-medium ${received ? 'text-green-700' : 'text-gray-500'}`}>
-                    {formatBRL(income.amount)}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
             </div>
             <div className="border-t border-gray-100 pt-2 space-y-1">
               <div className="flex justify-between text-sm text-gray-600">
@@ -356,8 +367,14 @@ export default function DashboardPage() {
               </div>
               {incomePending > 0 && (
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>A receber</span>
-                  <span className="font-medium text-gray-500">{formatBRL(incomePending)}</span>
+                  <span>A receber (este ciclo)</span>
+                  <span className="font-medium text-blue-600">{formatBRL(incomePending)}</span>
+                </div>
+              )}
+              {incomeBeforePayment > 0 && (
+                <div className="flex justify-between text-sm text-gray-500 text-xs pt-1 border-t border-gray-100">
+                  <span>Conta no disponível (antes do pagamento)</span>
+                  <span className="text-green-600">+ {formatBRL(incomeBeforePayment)}</span>
                 </div>
               )}
             </div>
@@ -374,6 +391,18 @@ export default function DashboardPage() {
             onSave={updateAccountBalance}
             label="Saldo atual"
           />
+          {plannedCash > 0 && (
+            <>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>- Gastos previstos (Pix/Dinheiro)</span>
+                <span className="text-orange-500">- {formatBRL(plannedCash)}</span>
+              </div>
+              <div className={`flex justify-between text-sm font-semibold border-t border-gray-100 pt-1.5 ${realAccountBalance >= 0 ? 'text-gray-700' : 'text-red-600'}`}>
+                <span>= Saldo real em conta</span>
+                <span>{formatBRL(realAccountBalance)}</span>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
