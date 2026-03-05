@@ -60,7 +60,13 @@ export interface CreditCard {
   closingDay: number
   paymentDay: number
   creditLimit?: number
+  currentBill: number
   createdAt: string
+}
+
+export interface UserSettings {
+  id: string
+  accountBalance: number
 }
 
 export interface FinanceStore {
@@ -71,6 +77,7 @@ export interface FinanceStore {
   incomes: Income[]
   fixedExpenses: FixedExpense[]
   creditCard: CreditCard | null
+  userSettings: UserSettings | null
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
   updateExpense: (id: string, expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
   deleteExpense: (id: string) => void | Promise<void>
@@ -92,5 +99,7 @@ export interface FinanceStore {
   deleteFixedExpense: (id: string) => void | Promise<void>
   toggleFixedExpense: (id: string) => void | Promise<void>
   getTotalFixedExpenses: () => number
-  saveCreditCard: (data: Omit<CreditCard, 'id' | 'createdAt'>) => void | Promise<void>
+  saveCreditCard: (data: Omit<CreditCard, 'id' | 'createdAt' | 'currentBill'>) => void | Promise<void>
+  updateAccountBalance: (amount: number) => Promise<void>
+  updateCurrentBill: (amount: number) => Promise<void>
 }

@@ -1,4 +1,4 @@
-import type { Income, Expense, FixedExpense, CreditCard } from '@/types'
+import type { Income, FixedExpense, CreditCard } from '@/types'
 
 export function getCurrentBillingCycle(closingDay: number, today: Date): { start: Date; end: Date } {
   const year = today.getFullYear()
@@ -31,8 +31,6 @@ export interface ForecastResult {
   incomeList: Array<{ income: Income; received: boolean }>
 
   // Saldo em conta
-  cashExpensesDone: number
-  cashFixedRemaining: number
   accountBalance: number
 
   // Poder de gasto
@@ -42,12 +40,12 @@ export interface ForecastResult {
 export function calculateForecast(params: {
   today: Date
   incomes: Income[]
-  expenses: Expense[]
   fixedExpenses: FixedExpense[]
   creditCard: CreditCard | null
+  manualBalance: number
   currentMonth: string
 }): ForecastResult {
-  const { today, incomes, expenses, fixedExpenses, creditCard, currentMonth } = params
+  const { today, incomes, fixedExpenses, creditCard, manualBalance, currentMonth } = params
   const todayDay = today.getDate()
 
   // ── Fatura ──
@@ -57,15 +55,7 @@ export function calculateForecast(params: {
   let daysUntilPayment = 0
 
   if (creditCard) {
-    const cycle = getCurrentBillingCycle(creditCard.closingDay, today)
-
-    cardBillAccumulated = expenses
-      .filter((e) => {
-        if (e.paymentMethod !== 'card') return false
-        const d = new Date(e.date + 'T00:00:00')
-        return d >= cycle.start && d <= today
-      })
-      .reduce((sum, e) => sum + e.amount, 0)
+    cardBillAccumulated = creditCard.currentBill
 
     const cardFixedBeforeClosing = fixedExpenses
       .filter((fe) => {
@@ -90,7 +80,7 @@ export function calculateForecast(params: {
     daysUntilPayment = Math.ceil((paymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
   }
 
-  // ── Receitas do mês ──
+  // ── Receitas do mês (informativo) ──
   const monthIncomes = incomes.filter((inc) => inc.month === currentMonth)
   const incomeList = monthIncomes.map((income) => {
     const received = income.paymentDay != null ? income.paymentDay <= todayDay : true
@@ -105,25 +95,9 @@ export function calculateForecast(params: {
     .filter((item) => !item.received)
     .reduce((sum, item) => sum + item.income.amount, 0)
 
-  // ── Saldo em conta ──
-  const cashExpensesDone = expenses
-    .filter((e) => e.paymentMethod === 'cash' && e.date.startsWith(currentMonth))
-    .reduce((sum, e) => sum + e.amount, 0)
-
-  const cashFixedRemaining = fixedExpenses
-    .filter((fe) => {
-      if (!fe.isActive || fe.paymentMethod !== 'cash') return false
-      const billingDay = fe.billingDay ?? 1
-      return billingDay > todayDay
-    })
-    .reduce((sum, fe) => sum + fe.amount, 0)
-
-  const accountBalance = incomeReceived - cashExpensesDone
-
-  // ── Poder de gasto ──
-  const totalIncome = incomeReceived + incomePending
-  const cashTotal = cashExpensesDone + cashFixedRemaining
-  const spendingPower = totalIncome - cardBillForecast - cashTotal
+  // ── Saldo e Poder de Gasto ──
+  const accountBalance = manualBalance
+  const spendingPower = manualBalance - cardBillForecast
 
   return {
     cardBillAccumulated,
@@ -133,8 +107,6 @@ export function calculateForecast(params: {
     incomeReceived,
     incomePending,
     incomeList,
-    cashExpensesDone,
-    cashFixedRemaining,
     accountBalance,
     spendingPower,
   }

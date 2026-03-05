@@ -1,19 +1,91 @@
+import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import { currentMonth } from '@/utils/budgetUtils'
 import { calculateForecast, formatBRL } from '@/utils/forecastUtils'
 
+function EditableAmount({
+  value,
+  onSave,
+  label,
+}: {
+  value: number
+  onSave: (v: number) => Promise<void>
+  label: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [inputVal, setInputVal] = useState('')
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const startEdit = () => {
+    setInputVal(value.toFixed(2).replace('.', ','))
+    setEditing(true)
+    setTimeout(() => inputRef.current?.select(), 0)
+  }
+
+  const commit = async () => {
+    const parsed = parseFloat(inputVal.replace(',', '.'))
+    if (!isNaN(parsed)) {
+      setSaving(true)
+      await onSave(parsed)
+      setSaving(false)
+    }
+    setEditing(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') commit()
+    if (e.key === 'Escape') setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-500">{label}</span>
+        <input
+          ref={inputRef}
+          className="border border-blue-400 rounded px-2 py-0.5 text-sm w-32 text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          disabled={saving}
+          inputMode="decimal"
+        />
+        {saving && <span className="text-xs text-gray-400">...</span>}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={startEdit}
+      className="flex items-center gap-1 group text-left"
+      title="Clique para editar"
+    >
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
+        {formatBRL(value)}
+      </span>
+      <span className="text-gray-300 group-hover:text-blue-400 text-xs">✏</span>
+    </button>
+  )
+}
+
 export default function DashboardPage() {
-  const { expenses, incomes, fixedExpenses, creditCard } = useFinanceStore()
+  const { incomes, fixedExpenses, creditCard, userSettings, updateAccountBalance, updateCurrentBill } = useFinanceStore()
   const month = currentMonth()
   const today = new Date()
+
+  const manualBalance = userSettings?.accountBalance ?? 0
 
   const forecast = calculateForecast({
     today,
     incomes,
-    expenses,
     fixedExpenses,
     creditCard,
+    manualBalance,
     currentMonth: month,
   })
 
@@ -26,8 +98,6 @@ export default function DashboardPage() {
     incomeReceived,
     incomePending,
     incomeList,
-    cashExpensesDone,
-    cashFixedRemaining,
     accountBalance,
   } = forecast
 
@@ -91,9 +161,12 @@ export default function DashboardPage() {
         ) : (
           <>
             <div className="space-y-2 mb-3">
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Acumulado hoje</span>
-                <span className="font-medium">{formatBRL(cardBillAccumulated)}</span>
+              <div className="flex justify-between text-sm text-gray-600 items-center">
+                <EditableAmount
+                  value={cardBillAccumulated}
+                  onSave={updateCurrentBill}
+                  label="Fatura atual"
+                />
               </div>
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Previsão no fechamento {closingDate ? `(dia ${formatDay(closingDate)})` : ''}</span>
@@ -183,24 +256,11 @@ export default function DashboardPage() {
       <section className="bg-white rounded-lg border border-gray-200 p-4">
         <h2 className="font-semibold text-gray-700 mb-3">Saldo em Conta</h2>
         <div className="space-y-2">
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Recebido este mês</span>
-            <span className="font-medium text-green-700">{formatBRL(incomeReceived)}</span>
-          </div>
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Despesas em dinheiro/PIX</span>
-            <span className="font-medium text-red-600">- {formatBRL(cashExpensesDone)}</span>
-          </div>
-          {cashFixedRemaining > 0 && (
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>Fixos em dinheiro restantes</span>
-              <span className="font-medium">- {formatBRL(cashFixedRemaining)}</span>
-            </div>
-          )}
-          <div className={`flex justify-between text-sm font-bold border-t border-gray-100 pt-2 ${accountBalance >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-            <span>Saldo atual</span>
-            <span>{formatBRL(accountBalance)}</span>
-          </div>
+          <EditableAmount
+            value={accountBalance}
+            onSave={updateAccountBalance}
+            label="Saldo atual"
+          />
         </div>
       </section>
     </div>

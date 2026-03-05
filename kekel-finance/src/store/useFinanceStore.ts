@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
-import type { Category, Expense, Budget, Goal, Income, FixedExpense, CreditCard, FinanceStore } from '@/types'
+import type { Category, Expense, Budget, Goal, Income, FixedExpense, CreditCard, UserSettings, FinanceStore } from '@/types'
 
 // ── helpers: snake_case ↔ camelCase mapping ──────────────────────────
 
@@ -66,7 +66,13 @@ const mapCreditCardFromDB = (row: Record<string, unknown>): CreditCard => ({
   closingDay: Number(row.closing_day),
   paymentDay: Number(row.payment_day),
   creditLimit: row.credit_limit != null ? Number(row.credit_limit) : undefined,
+  currentBill: Number(row.current_bill ?? 0),
   createdAt: row.created_at as string,
+})
+
+const mapUserSettingsFromDB = (row: Record<string, unknown>): UserSettings => ({
+  id: row.id as string,
+  accountBalance: Number(row.account_balance ?? 0),
 })
 
 // ── Store ────────────────────────────────────────────────────────────
@@ -80,10 +86,11 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
   incomes: [],
   fixedExpenses: [],
   creditCard: null,
+  userSettings: null,
 
   // ── Bootstrap — load everything from Supabase ──
   _hydrate: async () => {
-    const [catRes, expRes, budRes, goalRes, incRes, feRes, ccRes] = await Promise.all([
+    const [catRes, expRes, budRes, goalRes, incRes, feRes, ccRes, usRes] = await Promise.all([
       supabase.from('categories').select('*').order('name'),
       supabase.from('expenses').select('*').order('date', { ascending: false }),
       supabase.from('budgets').select('*'),
@@ -91,6 +98,7 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       supabase.from('incomes').select('*').order('created_at', { ascending: false }),
       supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
       supabase.from('credit_card_config').select('*').limit(1),
+      supabase.from('user_settings').select('*').limit(1),
     ])
 
     set({
@@ -102,6 +110,7 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       incomes: (incRes.data ?? []).map(mapIncomeFromDB),
       fixedExpenses: (feRes.data ?? []).map(mapFixedExpenseFromDB),
       creditCard: ccRes.data && ccRes.data.length > 0 ? mapCreditCardFromDB(ccRes.data[0]) : null,
+      userSettings: usRes.data && usRes.data.length > 0 ? mapUserSettingsFromDB(usRes.data[0]) : null,
     })
   },
 
@@ -405,6 +414,7 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
           closing_day: data.closingDay,
           payment_day: data.paymentDay,
           credit_limit: data.creditLimit ?? null,
+          current_bill: 0,
         })
         .select()
         .single()
@@ -412,6 +422,40 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       if (!error && row) {
         set({ creditCard: mapCreditCardFromDB(row) })
       }
+    }
+  },
+  // ── User Settings ──
+  updateAccountBalance: async (amount) => {
+    const { userSettings } = get()
+    if (userSettings) {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ account_balance: amount, updated_at: new Date().toISOString() })
+        .eq('id', userSettings.id)
+      if (!error) {
+        set({ userSettings: { ...userSettings, accountBalance: amount } })
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .insert({ account_balance: amount })
+        .select()
+        .single()
+      if (!error && data) {
+        set({ userSettings: mapUserSettingsFromDB(data) })
+      }
+    }
+  },
+
+  updateCurrentBill: async (amount) => {
+    const { creditCard } = get()
+    if (!creditCard) return
+    const { error } = await supabase
+      .from('credit_card_config')
+      .update({ current_bill: amount })
+      .eq('id', creditCard.id)
+    if (!error) {
+      set({ creditCard: { ...creditCard, currentBill: amount } })
     }
   },
 }))
