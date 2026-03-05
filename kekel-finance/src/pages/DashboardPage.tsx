@@ -98,6 +98,7 @@ function groupByMonth(expenses: PlannedExpense[]): { label: string; items: Plann
 export default function DashboardPage() {
   const {
     incomes,
+    expenses,
     fixedExpenses,
     plannedExpenses,
     creditCard,
@@ -118,6 +119,7 @@ export default function DashboardPage() {
   const forecast = calculateForecast({
     today,
     incomes,
+    expenses,
     fixedExpenses,
     plannedExpenses,
     creditCard,
@@ -136,9 +138,11 @@ export default function DashboardPage() {
     incomePending,
     incomeList,
     accountBalance,
-    rendaMensal,
-    faturaCompleta,
+    faturaBill,
+    totalFixedActive,
+    expensesCurrentMonth,
     gastosPrevistosCurrentMonth,
+    incomeBeforeClosing,
     quantoPodeGastar,
   } = forecast
 
@@ -207,12 +211,26 @@ export default function DashboardPage() {
 
         <div className="space-y-1.5 text-sm border-t border-gray-200 pt-3">
           <div className="flex justify-between text-gray-600">
-            <span>Renda do mês</span>
-            <span className="font-medium text-gray-800">{formatBRL(rendaMensal)}</span>
+            <span>Saldo atual</span>
+            <span className="font-medium text-gray-800">{formatBRL(accountBalance)}</span>
+          </div>
+          {incomeBeforeClosing > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>+ Renda a receber (antes do fechamento)</span>
+              <span className="font-medium text-green-700">+ {formatBRL(incomeBeforeClosing)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-gray-500">
+            <span>- Fatura (cartão)</span>
+            <span className="text-red-500">- {formatBRL(faturaBill)}</span>
           </div>
           <div className="flex justify-between text-gray-500">
-            <span>- Fatura completa</span>
-            <span className="text-red-500">- {formatBRL(faturaCompleta)}</span>
+            <span>- Custos fixos</span>
+            <span className="text-red-500">- {formatBRL(totalFixedActive)}</span>
+          </div>
+          <div className="flex justify-between text-gray-500">
+            <span>- Gastos do mês</span>
+            <span className="text-red-500">- {formatBRL(expensesCurrentMonth)}</span>
           </div>
           <div className="flex justify-between text-gray-500">
             <span>- Gastos previstos</span>

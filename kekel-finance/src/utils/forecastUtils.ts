@@ -1,4 +1,4 @@
-import type { Income, FixedExpense, CreditCard, PlannedExpense } from '@/types'
+import type { Income, FixedExpense, CreditCard, PlannedExpense, Expense } from '@/types'
 
 export function getCurrentBillingCycle(closingDay: number, today: Date): { start: Date; end: Date } {
   const year = today.getFullYear()
@@ -38,8 +38,10 @@ export interface ForecastResult {
 
   // Fórmula nova
   rendaMensal: number
-  faturaCompleta: number
-  baseGasto: number
+  incomeBeforeClosing: number  // rendas ainda não recebidas com paymentDay <= fechamento
+  faturaBill: number           // só o valor manual do cartão
+  totalFixedActive: number     // soma dos gastos fixos ativos
+  expensesCurrentMonth: number // gastos da aba expenses no mês
   gastosPrevistosCurrentMonth: number
   monthlyGoal: number
   quantoPodeGastar: number
@@ -48,6 +50,7 @@ export interface ForecastResult {
 export function calculateForecast(params: {
   today: Date
   incomes: Income[]
+  expenses: Expense[]
   fixedExpenses: FixedExpense[]
   plannedExpenses: PlannedExpense[]
   creditCard: CreditCard | null
@@ -55,7 +58,7 @@ export function calculateForecast(params: {
   monthlyGoal: number
   currentMonth: string
 }): ForecastResult {
-  const { today, incomes, fixedExpenses, plannedExpenses, creditCard, manualBalance, monthlyGoal, currentMonth } = params
+  const { today, incomes, expenses, fixedExpenses, plannedExpenses, creditCard, manualBalance, monthlyGoal, currentMonth } = params
   const todayDay = today.getDate()
 
   // ── Fatura ──
@@ -112,19 +115,36 @@ export function calculateForecast(params: {
   // ── Fórmula nova ──
   const rendaMensal = monthIncomes.reduce((sum, inc) => sum + inc.amount, 0)
 
+  // Rendas ainda não recebidas que chegarão antes do fechamento da fatura.
+  // Renda sem paymentDay é tratada como já recebida (está no saldo).
+  const closingDay = creditCard?.closingDay ?? null
+  const incomeBeforeClosing = monthIncomes
+    .filter((inc) => {
+      if (inc.paymentDay == null) return false          // sem data → já no saldo
+      if (inc.paymentDay <= todayDay) return false       // já recebida → já no saldo
+      if (closingDay !== null && inc.paymentDay > closingDay) return false  // chega após o fechamento
+      return true
+    })
+    .reduce((sum, inc) => sum + inc.amount, 0)
+
+  const faturaBill = creditCard?.currentBill ?? 0
+
   const totalFixedActive = fixedExpenses
     .filter((fe) => fe.isActive)
     .reduce((sum, fe) => sum + fe.amount, 0)
 
-  const faturaCompleta = (creditCard?.currentBill ?? 0) + totalFixedActive
-
-  const baseGasto = rendaMensal - faturaCompleta
+  const expensesCurrentMonth = expenses
+    .filter((e) => e.date.startsWith(currentMonth))
+    .reduce((sum, e) => sum + e.amount, 0)
 
   const gastosPrevistosCurrentMonth = plannedExpenses
     .filter((pe) => pe.date.startsWith(currentMonth))
     .reduce((sum, pe) => sum + pe.amount, 0)
 
-  const quantoPodeGastar = baseGasto - gastosPrevistosCurrentMonth - monthlyGoal
+  // Base: saldo atual + rendas a receber antes do fechamento
+  const quantoPodeGastar =
+    manualBalance + incomeBeforeClosing
+    - faturaBill - totalFixedActive - expensesCurrentMonth - gastosPrevistosCurrentMonth - monthlyGoal
 
   return {
     cardBillAccumulated,
@@ -137,8 +157,10 @@ export function calculateForecast(params: {
     accountBalance,
     spendingPower,
     rendaMensal,
-    faturaCompleta,
-    baseGasto,
+    incomeBeforeClosing,
+    faturaBill,
+    totalFixedActive,
+    expensesCurrentMonth,
     gastosPrevistosCurrentMonth,
     monthlyGoal,
     quantoPodeGastar,
