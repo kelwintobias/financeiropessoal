@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
-import type { Category, Expense, Budget, Goal, Income, FixedExpense, CreditCard, UserSettings, FinanceStore } from '@/types'
+import type { Category, Expense, Budget, Goal, Income, FixedExpense, CreditCard, UserSettings, PlannedExpense, FinanceStore } from '@/types'
 
 // ── helpers: snake_case ↔ camelCase mapping ──────────────────────────
 
@@ -73,6 +73,16 @@ const mapCreditCardFromDB = (row: Record<string, unknown>): CreditCard => ({
 const mapUserSettingsFromDB = (row: Record<string, unknown>): UserSettings => ({
   id: row.id as string,
   accountBalance: Number(row.account_balance ?? 0),
+  monthlyGoal: Number(row.monthly_goal ?? 0),
+})
+
+const mapPlannedExpenseFromDB = (row: Record<string, unknown>): PlannedExpense => ({
+  id: row.id as string,
+  description: row.description as string,
+  amount: Number(row.amount),
+  date: row.date as string,
+  paymentMethod: (row.payment_method as PlannedExpense['paymentMethod']) ?? 'card',
+  createdAt: row.created_at as string,
 })
 
 // ── Store ────────────────────────────────────────────────────────────
@@ -85,12 +95,13 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
   goals: [],
   incomes: [],
   fixedExpenses: [],
+  plannedExpenses: [],
   creditCard: null,
   userSettings: null,
 
   // ── Bootstrap — load everything from Supabase ──
   _hydrate: async () => {
-    const [catRes, expRes, budRes, goalRes, incRes, feRes, ccRes, usRes] = await Promise.all([
+    const [catRes, expRes, budRes, goalRes, incRes, feRes, ccRes, usRes, peRes] = await Promise.all([
       supabase.from('categories').select('*').order('name'),
       supabase.from('expenses').select('*').order('date', { ascending: false }),
       supabase.from('budgets').select('*'),
@@ -99,6 +110,7 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
       supabase.from('credit_card_config').select('*').limit(1),
       supabase.from('user_settings').select('*').limit(1),
+      supabase.from('planned_expenses').select('*').order('date'),
     ])
 
     set({
@@ -109,6 +121,7 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       goals: (goalRes.data ?? []).map(mapGoalFromDB),
       incomes: (incRes.data ?? []).map(mapIncomeFromDB),
       fixedExpenses: (feRes.data ?? []).map(mapFixedExpenseFromDB),
+      plannedExpenses: (peRes.data ?? []).map(mapPlannedExpenseFromDB),
       creditCard: ccRes.data && ccRes.data.length > 0 ? mapCreditCardFromDB(ccRes.data[0]) : null,
       userSettings: usRes.data && usRes.data.length > 0 ? mapUserSettingsFromDB(usRes.data[0]) : null,
     })
@@ -456,6 +469,56 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       .eq('id', creditCard.id)
     if (!error) {
       set({ creditCard: { ...creditCard, currentBill: amount } })
+    }
+  },
+
+  // ── Planned Expenses ──
+  addPlannedExpense: async (pe) => {
+    const { data, error } = await supabase
+      .from('planned_expenses')
+      .insert({
+        description: pe.description,
+        amount: pe.amount,
+        date: pe.date,
+        payment_method: pe.paymentMethod,
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      const mapped = mapPlannedExpenseFromDB(data)
+      set((state) => ({
+        plannedExpenses: [...state.plannedExpenses, mapped].sort((a, b) => a.date.localeCompare(b.date)),
+      }))
+    }
+  },
+
+  deletePlannedExpense: async (id) => {
+    const { error } = await supabase.from('planned_expenses').delete().eq('id', id)
+    if (!error) {
+      set((state) => ({ plannedExpenses: state.plannedExpenses.filter((pe) => pe.id !== id) }))
+    }
+  },
+
+  updateMonthlyGoal: async (amount) => {
+    const { userSettings } = get()
+    if (userSettings) {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ monthly_goal: amount })
+        .eq('id', userSettings.id)
+      if (!error) {
+        set({ userSettings: { ...userSettings, monthlyGoal: amount } })
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .insert({ monthly_goal: amount })
+        .select()
+        .single()
+      if (!error && data) {
+        set({ userSettings: mapUserSettingsFromDB(data) })
+      }
     }
   },
 }))

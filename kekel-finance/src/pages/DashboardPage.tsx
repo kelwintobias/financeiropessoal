@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import { currentMonth } from '@/utils/budgetUtils'
 import { calculateForecast, formatBRL } from '@/utils/forecastUtils'
+import type { PlannedExpense } from '@/types'
 
 function EditableAmount({
   value,
@@ -73,19 +74,55 @@ function EditableAmount({
   )
 }
 
+// Group planned expenses by month label (e.g. "Março 2026")
+function groupByMonth(expenses: PlannedExpense[]): { label: string; items: PlannedExpense[] }[] {
+  const map = new Map<string, PlannedExpense[]>()
+  for (const pe of expenses) {
+    const [year, month] = pe.date.split('-').map(Number)
+    const key = `${year}-${String(month).padStart(2, '0')}`
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(pe)
+  }
+  const months = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+  ]
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, items]) => {
+      const [y, m] = key.split('-').map(Number)
+      return { label: `${months[m - 1]} ${y}`, items }
+    })
+}
+
 export default function DashboardPage() {
-  const { incomes, fixedExpenses, creditCard, userSettings, updateAccountBalance, updateCurrentBill } = useFinanceStore()
+  const {
+    incomes,
+    fixedExpenses,
+    plannedExpenses,
+    creditCard,
+    userSettings,
+    updateAccountBalance,
+    updateCurrentBill,
+    updateMonthlyGoal,
+    addPlannedExpense,
+    deletePlannedExpense,
+  } = useFinanceStore()
+
   const month = currentMonth()
   const today = new Date()
 
   const manualBalance = userSettings?.accountBalance ?? 0
+  const monthlyGoal = userSettings?.monthlyGoal ?? 0
 
   const forecast = calculateForecast({
     today,
     incomes,
     fixedExpenses,
+    plannedExpenses,
     creditCard,
     manualBalance,
+    monthlyGoal,
     currentMonth: month,
   })
 
@@ -99,6 +136,10 @@ export default function DashboardPage() {
     incomePending,
     incomeList,
     accountBalance,
+    rendaMensal,
+    faturaCompleta,
+    gastosPrevistosCurrentMonth,
+    quantoPodeGastar,
   } = forecast
 
   const closingDate = creditCard
@@ -131,17 +172,71 @@ export default function DashboardPage() {
       ? Math.min(100, (cardBillForecast / creditCard.creditLimit) * 100)
       : null
 
+  // Planned expense form state
+  const [peDesc, setPeDesc] = useState('')
+  const [peAmount, setPeAmount] = useState('')
+  const [peDate, setPeDate] = useState('')
+  const [peMethod, setPeMethod] = useState<'card' | 'cash'>('card')
+  const [peAdding, setPeAdding] = useState(false)
+
+  const handleAddPlannedExpense = async () => {
+    const amount = parseFloat(peAmount.replace(',', '.'))
+    if (!peDesc.trim() || isNaN(amount) || amount <= 0 || !peDate) return
+    setPeAdding(true)
+    await addPlannedExpense({ description: peDesc.trim(), amount, date: peDate, paymentMethod: peMethod })
+    setPeAdding(false)
+    setPeDesc('')
+    setPeAmount('')
+    setPeDate('')
+    setPeMethod('card')
+  }
+
+  const grouped = groupByMonth(plannedExpenses)
+
   return (
     <div className="max-w-lg mx-auto px-4 py-6 pb-24">
       <h1 className="text-xl font-bold text-gray-800 mb-4">Dashboard</h1>
 
-      {/* Section 1 — Poder de Gasto */}
-      <section className={`rounded-xl p-5 mb-4 text-center ${spendingPower >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-        <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500">Quanto você ainda pode gastar</p>
-        <p className={`text-4xl font-bold ${spendingPower >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-          {formatBRL(spendingPower)}
+      {/* Section 1 — Quanto posso gastar */}
+      <section className={`rounded-xl p-5 mb-4 ${quantoPodeGastar >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+        <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500 text-center">Disponível para gastar</p>
+        <p className={`text-4xl font-bold text-center ${quantoPodeGastar >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+          {formatBRL(quantoPodeGastar)}
         </p>
-        <p className="text-xs text-gray-400 mt-1">este mês</p>
+        <p className="text-xs text-gray-400 mt-1 mb-4 text-center">este mês</p>
+
+        <div className="space-y-1.5 text-sm border-t border-gray-200 pt-3">
+          <div className="flex justify-between text-gray-600">
+            <span>Renda do mês</span>
+            <span className="font-medium text-gray-800">{formatBRL(rendaMensal)}</span>
+          </div>
+          <div className="flex justify-between text-gray-500">
+            <span>- Fatura completa</span>
+            <span className="text-red-500">- {formatBRL(faturaCompleta)}</span>
+          </div>
+          <div className="flex justify-between text-gray-500">
+            <span>- Gastos previstos</span>
+            <span className="text-orange-500">- {formatBRL(gastosPrevistosCurrentMonth)}</span>
+          </div>
+          <div className="flex justify-between text-gray-500 items-center">
+            <span>- Meta de saldo</span>
+            <EditableAmount
+              value={monthlyGoal}
+              onSave={updateMonthlyGoal}
+              label=""
+            />
+          </div>
+          <div className="flex justify-between font-semibold border-t border-gray-200 pt-1.5 mt-1.5">
+            <span className="text-gray-700">= Disponível</span>
+            <span className={quantoPodeGastar >= 0 ? 'text-green-700' : 'text-red-600'}>{formatBRL(quantoPodeGastar)}</span>
+          </div>
+        </div>
+
+        {/* Legacy spending power (saldo - fatura) */}
+        <div className="mt-3 pt-2 border-t border-gray-200 flex justify-between text-xs text-gray-400">
+          <span>Saldo - fatura</span>
+          <span className={spendingPower >= 0 ? 'text-green-600' : 'text-red-500'}>{formatBRL(spendingPower)}</span>
+        </div>
       </section>
 
       {/* Section 2 — Situação da Fatura */}
@@ -253,7 +348,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Section 4 — Saldo em Conta */}
-      <section className="bg-white rounded-lg border border-gray-200 p-4">
+      <section className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
         <h2 className="font-semibold text-gray-700 mb-3">Saldo em Conta</h2>
         <div className="space-y-2">
           <EditableAmount
@@ -262,6 +357,99 @@ export default function DashboardPage() {
             label="Saldo atual"
           />
         </div>
+      </section>
+
+      {/* Section 5 — Gastos Previstos */}
+      <section className="bg-white rounded-lg border border-gray-200 p-4">
+        <h2 className="font-semibold text-gray-700 mb-3">Gastos Previstos</h2>
+
+        {/* Inline form */}
+        <div className="space-y-2 mb-4">
+          <input
+            type="text"
+            placeholder="Descrição"
+            value={peDesc}
+            onChange={(e) => setPeDesc(e.target.value)}
+            className="w-full border border-gray-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              placeholder="Valor"
+              value={peAmount}
+              onChange={(e) => setPeAmount(e.target.value)}
+              className="flex-1 border border-gray-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              min="0"
+              step="0.01"
+            />
+            <input
+              type="date"
+              value={peDate}
+              onChange={(e) => setPeDate(e.target.value)}
+              className="flex-1 border border-gray-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+          <div className="flex gap-2 items-center">
+            <select
+              value={peMethod}
+              onChange={(e) => setPeMethod(e.target.value as 'card' | 'cash')}
+              className="flex-1 border border-gray-200 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+            >
+              <option value="card">Cartão</option>
+              <option value="cash">Dinheiro/PIX</option>
+            </select>
+            <button
+              onClick={handleAddPlannedExpense}
+              disabled={peAdding}
+              className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {peAdding ? '...' : 'Adicionar'}
+            </button>
+          </div>
+        </div>
+
+        {/* Grouped list */}
+        {grouped.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-2">Nenhum gasto previsto.</p>
+        ) : (
+          <div className="space-y-4">
+            {grouped.map(({ label, items }) => (
+              <div key={label}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">{label}</p>
+                <div className="space-y-2">
+                  {items.map((pe) => {
+                    const [, , day] = pe.date.split('-')
+                    return (
+                      <div key={pe.id} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-gray-400 shrink-0">{day}/{pe.date.split('-')[1]}</span>
+                          <span className="text-gray-700 truncate">{pe.description}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${pe.paymentMethod === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {pe.paymentMethod === 'card' ? 'Cartão' : 'Dinheiro'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 ml-2 shrink-0">
+                          <span className="font-medium text-gray-800">{formatBRL(pe.amount)}</span>
+                          <button
+                            onClick={() => deletePlannedExpense(pe.id)}
+                            className="text-gray-300 hover:text-red-500 transition-colors text-base leading-none"
+                            title="Remover"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex justify-between text-xs text-gray-400 mt-2 pt-1 border-t border-gray-100">
+                  <span>Total {label}</span>
+                  <span>{formatBRL(items.reduce((s, pe) => s + pe.amount, 0))}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )

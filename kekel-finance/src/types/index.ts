@@ -67,6 +67,16 @@ export interface CreditCard {
 export interface UserSettings {
   id: string
   accountBalance: number
+  monthlyGoal: number
+}
+
+export interface PlannedExpense {
+  id: string
+  description: string
+  amount: number
+  date: string           // 'YYYY-MM-DD'
+  paymentMethod: 'card' | 'cash'
+  createdAt: string
 }
 
 export interface FinanceStore {
@@ -76,6 +86,7 @@ export interface FinanceStore {
   goals: Goal[]
   incomes: Income[]
   fixedExpenses: FixedExpense[]
+  plannedExpenses: PlannedExpense[]
   creditCard: CreditCard | null
   userSettings: UserSettings | null
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => void | Promise<void>
@@ -102,4 +113,7 @@ export interface FinanceStore {
   saveCreditCard: (data: Omit<CreditCard, 'id' | 'createdAt' | 'currentBill'>) => void | Promise<void>
   updateAccountBalance: (amount: number) => Promise<void>
   updateCurrentBill: (amount: number) => Promise<void>
+  addPlannedExpense: (pe: Omit<PlannedExpense, 'id' | 'createdAt'>) => Promise<void>
+  deletePlannedExpense: (id: string) => Promise<void>
+  updateMonthlyGoal: (amount: number) => Promise<void>
 }
