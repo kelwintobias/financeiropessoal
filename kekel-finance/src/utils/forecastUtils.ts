@@ -1,4 +1,4 @@
-import type { Income, FixedExpense, CreditCard, PlannedExpense, Expense } from '@/types'
+import type { Income, FixedExpense, CreditCard, Expense } from '@/types'
 
 export function getCurrentBillingCycle(closingDay: number, today: Date): { start: Date; end: Date } {
   const year = today.getFullYear()
@@ -26,7 +26,7 @@ export interface IncomeListItem {
 export interface ForecastResult {
   // Fatura
   cardBillAccumulated: number  // = currentBill (valor manual do cartão)
-  cardBillForecast: number     // = currentBill + fixedTotal + plannedCard
+  cardBillForecast: number     // = currentBill + fixedTotal + cycleExpensesCard
   daysUntilClosing: number
   daysUntilPayment: number
 
@@ -37,15 +37,16 @@ export interface ForecastResult {
 
   // Saldo em conta
   accountBalance: number
-  realAccountBalance: number   // saldo - gastos previstos em dinheiro/PIX
+  realAccountBalance: number   // saldo - gastos em dinheiro/PIX do ciclo
 
   // Componentes da fatura
   totalFixedActive: number
-  plannedCard: number   // gastos previstos pagos no cartão
-  plannedCash: number   // gastos previstos pagos em dinheiro/PIX
+  cycleExpensesCard: number  // gastos do ciclo pagos no cartão
+  cycleExpensesCash: number  // gastos do ciclo pagos em dinheiro/PIX
 
-  // Gastos históricos (somente informativo)
-  expensesCurrentMonth: number
+  // Ciclo de faturamento
+  cycleStart: string  // 'YYYY-MM-DD'
+  cycleEnd: string    // 'YYYY-MM-DD'
 
   // Disponível
   incomeBeforePayment: number  // rendas a receber antes do próximo pagamento da fatura
@@ -62,13 +63,12 @@ export function calculateForecast(params: {
   incomes: Income[]
   expenses: Expense[]
   fixedExpenses: FixedExpense[]
-  plannedExpenses: PlannedExpense[]
   creditCard: CreditCard | null
   manualBalance: number
   monthlyGoal: number
   currentMonth: string
 }): ForecastResult {
-  const { today, incomes, expenses, fixedExpenses, plannedExpenses, creditCard, manualBalance, monthlyGoal, currentMonth } = params
+  const { today, incomes, expenses, fixedExpenses, creditCard, manualBalance, monthlyGoal, currentMonth } = params
   const todayDay = today.getDate()
   const year = today.getFullYear()
   const month = today.getMonth()
@@ -142,14 +142,23 @@ export function calculateForecast(params: {
     return sum
   }, 0)
 
-  // ── Gastos previstos separados por forma de pagamento ──
-  const plannedCard = plannedExpenses
-    .filter((pe) => pe.paymentMethod === 'card')
-    .reduce((sum, pe) => sum + pe.amount, 0)
+  // ── Ciclo de faturamento ──
+  // Se não há cartão, usa o mês corrente inteiro como ciclo
+  const billingCycle = creditCard
+    ? getCurrentBillingCycle(creditCard.closingDay, today)
+    : { start: new Date(year, month, 1), end: new Date(year, month + 1, 0) }
 
-  const plannedCash = plannedExpenses
-    .filter((pe) => pe.paymentMethod === 'cash')
-    .reduce((sum, pe) => sum + pe.amount, 0)
+  const cycleStart = billingCycle.start.toISOString().split('T')[0]
+  const cycleEnd = billingCycle.end.toISOString().split('T')[0]
+
+  // ── Gastos da aba Gastos dentro do ciclo atual ──
+  const cycleExpensesCard = expenses
+    .filter((e) => e.paymentMethod === 'card' && e.date >= cycleStart && e.date <= cycleEnd)
+    .reduce((sum, e) => sum + e.amount, 0)
+
+  const cycleExpensesCash = expenses
+    .filter((e) => e.paymentMethod === 'cash' && e.date >= cycleStart && e.date <= cycleEnd)
+    .reduce((sum, e) => sum + e.amount, 0)
 
   // ── Custos fixos (todos entram na fatura do cartão) ──
   const totalFixedActive = fixedExpenses
@@ -158,22 +167,17 @@ export function calculateForecast(params: {
 
   // ── Fatura ──
   const cardBillAccumulated = creditCard?.currentBill ?? 0
-  // Fatura total = fatura atual + custos fixos ativos + gastos previstos no cartão
-  const cardBillForecast = cardBillAccumulated + totalFixedActive + plannedCard
+  // Fatura total = fatura atual + custos fixos ativos + gastos do ciclo no cartão
+  const cardBillForecast = cardBillAccumulated + totalFixedActive + cycleExpensesCard
 
   // ── Saldo real em conta ──
   const accountBalance = manualBalance
-  const realAccountBalance = manualBalance - plannedCash  // pode ser negativo
-
-  // ── Gastos históricos do mês (somente informativo) ──
-  const expensesCurrentMonth = expenses
-    .filter((e) => e.date.startsWith(currentMonth))
-    .reduce((sum, e) => sum + e.amount, 0)
+  const realAccountBalance = manualBalance - cycleExpensesCash  // pode ser negativo
 
   // ── Disponível para gastar ──
-  // = saldo + rendas antes do pagamento - fatura total - gastos previstos em dinheiro - meta
+  // = saldo + rendas antes do pagamento - fatura total - gastos do ciclo em dinheiro - meta
   const quantoPodeGastar =
-    manualBalance + incomeBeforePayment - cardBillForecast - plannedCash - monthlyGoal
+    manualBalance + incomeBeforePayment - cardBillForecast - cycleExpensesCash - monthlyGoal
 
   // Legacy
   const rendaMensal = monthIncomes.reduce((sum, inc) => sum + inc.amount, 0)
@@ -190,9 +194,10 @@ export function calculateForecast(params: {
     accountBalance,
     realAccountBalance,
     totalFixedActive,
-    plannedCard,
-    plannedCash,
-    expensesCurrentMonth,
+    cycleExpensesCard,
+    cycleExpensesCash,
+    cycleStart,
+    cycleEnd,
     incomeBeforePayment,
     monthlyGoal,
     quantoPodeGastar,
