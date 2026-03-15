@@ -113,7 +113,6 @@ export default function DashboardPage() {
     incomeList,
     accountBalance,
     realAccountBalance,
-    totalFixedActive,
     fixedAlreadyBilled,
     fixedPending,
     cycleExpensesCard,
