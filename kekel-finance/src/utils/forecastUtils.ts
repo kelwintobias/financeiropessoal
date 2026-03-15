@@ -41,6 +41,8 @@ export interface ForecastResult {
 
   // Componentes da fatura
   totalFixedActive: number
+  fixedAlreadyBilled: number  // fixos com billingDay <= hoje (já na fatura atual)
+  fixedPending: number        // fixos com billingDay > hoje (ainda não cobrados)
   cycleExpensesCard: number  // gastos do ciclo pagos no cartão
   cycleExpensesCash: number  // gastos do ciclo pagos em dinheiro/PIX
 
@@ -160,15 +162,23 @@ export function calculateForecast(params: {
     .filter((e) => e.paymentMethod === 'cash' && e.date >= cycleStart && e.date <= cycleEnd)
     .reduce((sum, e) => sum + e.amount, 0)
 
-  // ── Custos fixos (todos entram na fatura do cartão) ──
-  const totalFixedActive = fixedExpenses
-    .filter((fe) => fe.isActive)
+  // ── Custos fixos ──
+  const activeFixed = fixedExpenses.filter((fe) => fe.isActive)
+  const totalFixedActive = activeFixed.reduce((sum, fe) => sum + fe.amount, 0)
+
+  // Fixos cujo billingDay já passou → já estão incluídos na fatura atual (manual)
+  const fixedAlreadyBilled = activeFixed
+    .filter((fe) => fe.billingDay != null && fe.billingDay <= todayDay)
     .reduce((sum, fe) => sum + fe.amount, 0)
+
+  // Fixos cujo billingDay ainda não passou → precisam ser somados à fatura
+  const fixedPending = totalFixedActive - fixedAlreadyBilled
 
   // ── Fatura ──
   const cardBillAccumulated = creditCard?.currentBill ?? 0
-  // Fatura total = fatura atual + custos fixos ativos + gastos do ciclo no cartão
-  const cardBillForecast = cardBillAccumulated + totalFixedActive + cycleExpensesCard
+  // Fatura total = fatura atual + fixos pendentes + gastos do ciclo no cartão
+  // (fixos já cobrados já estão dentro de cardBillAccumulated)
+  const cardBillForecast = cardBillAccumulated + fixedPending + cycleExpensesCard
 
   // ── Saldo real em conta ──
   const accountBalance = manualBalance
@@ -194,6 +204,8 @@ export function calculateForecast(params: {
     accountBalance,
     realAccountBalance,
     totalFixedActive,
+    fixedAlreadyBilled,
+    fixedPending,
     cycleExpensesCard,
     cycleExpensesCash,
     cycleStart,

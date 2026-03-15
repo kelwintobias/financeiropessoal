@@ -114,6 +114,8 @@ export default function DashboardPage() {
     accountBalance,
     realAccountBalance,
     totalFixedActive,
+    fixedAlreadyBilled,
+    fixedPending,
     cycleExpensesCard,
     cycleExpensesCash,
     cycleStart,
@@ -240,9 +242,15 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="flex justify-between text-sm text-gray-500">
-                <span>+ Custos fixos ativos</span>
-                <span>{formatBRL(totalFixedActive)}</span>
+                <span>+ Custos fixos pendentes</span>
+                <span>{formatBRL(fixedPending)}</span>
               </div>
+              {fixedAlreadyBilled > 0 && (
+                <div className="flex justify-between text-xs text-gray-400 italic">
+                  <span className="line-through">Custos fixos já na fatura</span>
+                  <span className="line-through">{formatBRL(fixedAlreadyBilled)}</span>
+                </div>
+              )}
               {cycleExpensesCard > 0 && (
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>+ Gastos no cartão (ciclo {formatCycleRange()})</span>
