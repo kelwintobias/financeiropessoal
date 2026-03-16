@@ -50,7 +50,7 @@ Dashboard (EditableAmount)
 
 **Nenhuma mudança de schema.** Os gastos automáticos usam a tabela `expenses` existente.
 
-**Migration de seed:** `supabase/migrations/004_card_category_seed.sql`
+**Migration de seed:** `supabase/migrations/006_card_category_seed.sql`
 Insere a categoria "Cartão" com `is_default: true` e cor `#6366f1`, somente se não existir.
 
 ```sql
@@ -59,13 +59,42 @@ SELECT gen_random_uuid(), 'Cartão', '#6366f1', true
 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = 'Cartão');
 ```
 
+> **Nota:** migrations 001–005 já existem no projeto. O próximo número disponível é 006.
+
+---
+
+## Detalhes de Implementação
+
+### Assinatura TypeScript
+
+```ts
+updateBillAndRecord: (newAmount: number) => Promise<void>
+```
+
+### Baseline do diff
+
+`cardBillAccumulated = creditCard.currentBill` (conforme `forecastUtils.ts` linha 178). O valor exibido no Dashboard é igual a `currentBill`, portanto `diff = newAmount - creditCard.currentBill`.
+
+### Guard de categoria
+
+Se a categoria "Cartão" não for encontrada em `get().categories` (ex: migration não aplicada), a action **não registra o gasto** e apenas chama `updateCurrentBill(newAmount)`, logando um warning no console.
+
+### Tratamento de falha parcial
+
+As operações são sequenciais (não atômicas no banco). Estratégia: se `addExpense` falhar, a action retorna sem atualizar `currentBill`. Se `addExpense` suceder mas `updateCurrentBill` falhar, o gasto fica registrado e `currentBill` permanece com o valor antigo — inconsistência aceitável para uso pessoal. Erros são logados no console.
+
+### Formatação de data e arredondamento
+
+- Usar `String(day).padStart(2,'0') + '/' + String(month+1).padStart(2,'0')` para gerar `DD/MM` (mesmo padrão de `formatDay` no DashboardPage)
+- `diff` arredondado a 2 casas decimais: `Math.round(diff * 100) / 100`
+
 ---
 
 ## Artefatos Modificados
 
 | Artefato | Tipo | Descrição da mudança |
 |---|---|---|
-| `supabase/migrations/004_card_category_seed.sql` | Novo | Seed da categoria "Cartão" |
+| `supabase/migrations/006_card_category_seed.sql` | Novo | Seed da categoria "Cartão" |
 | `src/types/index.ts` | Edição | Adicionar `updateBillAndRecord` à interface `FinanceStore` |
 | `src/store/useFinanceStore.ts` | Edição | Implementar `updateBillAndRecord` |
 | `src/pages/DashboardPage.tsx` | Edição | Trocar `updateCurrentBill` por `updateBillAndRecord` no `EditableAmount` da fatura |
