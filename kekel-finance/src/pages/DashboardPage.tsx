@@ -81,7 +81,7 @@ export default function DashboardPage() {
     creditCard,
     userSettings,
     updateAccountBalance,
-    updateCurrentBill,
+    updateBillAndRecord,
     updateMonthlyGoal,
   } = useFinanceStore()
 
@@ -236,7 +236,7 @@ export default function DashboardPage() {
               <div className="flex justify-between text-sm text-gray-600 items-center">
                 <EditableAmount
                   value={cardBillAccumulated}
-                  onSave={updateCurrentBill}
+                  onSave={updateBillAndRecord}
                   label="Fatura atual"
                 />
               </div>
