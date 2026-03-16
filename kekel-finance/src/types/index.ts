@@ -113,6 +113,7 @@ export interface FinanceStore {
   saveCreditCard: (data: Omit<CreditCard, 'id' | 'createdAt' | 'currentBill'>) => void | Promise<void>
   updateAccountBalance: (amount: number) => Promise<void>
   updateCurrentBill: (amount: number) => Promise<void>
+  updateBillAndRecord: (newAmount: number) => Promise<void>
   addPlannedExpense: (pe: Omit<PlannedExpense, 'id' | 'createdAt'>) => Promise<void>
   deletePlannedExpense: (id: string) => Promise<void>
   updateMonthlyGoal: (amount: number) => Promise<void>
