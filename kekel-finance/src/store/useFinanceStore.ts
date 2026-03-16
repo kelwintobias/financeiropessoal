@@ -472,6 +472,41 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
     }
   },
 
+  updateBillAndRecord: async (newAmount) => {
+    const { creditCard, categories, updateCurrentBill } = get()
+    if (!creditCard) return
+
+    const diff = Math.round((newAmount - creditCard.currentBill) * 100) / 100
+
+    if (diff <= 0) {
+      await updateCurrentBill(newAmount)
+      return
+    }
+
+    const cardCategory = categories.find((c) => c.name === 'Cartão')
+    if (!cardCategory) {
+      console.warn('[updateBillAndRecord] Categoria "Cartão" não encontrada. Apenas atualizando fatura.')
+      await updateCurrentBill(newAmount)
+      return
+    }
+
+    const today = new Date()
+    const dd = String(today.getDate()).padStart(2, '0')
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const dateStr = `${today.getFullYear()}-${mm}-${dd}`
+    const description = `Fatura ${dd}/${mm}`
+
+    await get().addExpense({
+      amount: diff,
+      description,
+      categoryId: cardCategory.id,
+      date: dateStr,
+      paymentMethod: 'card',
+    })
+
+    await updateCurrentBill(newAmount)
+  },
+
   // ── Planned Expenses ──
   addPlannedExpense: async (pe) => {
     const { data, error } = await supabase
