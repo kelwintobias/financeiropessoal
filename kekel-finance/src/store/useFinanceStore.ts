@@ -342,13 +342,15 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
       .from('incomes')
       .update({ received_at: value })
       .eq('id', id)
-    if (!error) {
-      set((state) => ({
-        incomes: state.incomes.map((inc) =>
-          inc.id === id ? { ...inc, receivedAt: value ?? undefined } : inc
-        ),
-      }))
+    if (error) {
+      console.error('Failed to mark income received:', error)
+      return
     }
+    set((state) => ({
+      incomes: state.incomes.map((inc) =>
+        inc.id === id ? { ...inc, receivedAt: value ?? undefined } : inc
+      ),
+    }))
   },
 
   // ── Fixed Expenses ──
