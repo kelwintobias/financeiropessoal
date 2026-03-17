@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import { currentMonth } from '@/utils/budgetUtils'
+import { isReceivedInCycle, getCurrentBillingCycle } from '@/utils/forecastUtils'
 import IncomeForm from '@/components/income/IncomeForm'
 import type { Income } from '@/types'
 
@@ -18,10 +19,17 @@ function formatMonthLabel(month: string) {
 }
 
 export default function IncomePage() {
-  const { incomes, deleteIncome } = useFinanceStore()
+  const { incomes, deleteIncome, creditCard, markIncomeReceived } = useFinanceStore()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Income | undefined>()
   const month = currentMonth()
+
+  const today = new Date()
+  const cycle = creditCard
+    ? getCurrentBillingCycle(creditCard.closingDay, today)
+    : { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date(today.getFullYear(), today.getMonth() + 1, 0) }
+  const cycleStart = cycle.start.toISOString().split('T')[0]
+  const cycleEnd = cycle.end.toISOString().split('T')[0]
 
   const monthIncomes = incomes.filter((inc) => inc.month === month)
   const fixedTotal = monthIncomes.filter((inc) => inc.type === 'fixed').reduce((sum, inc) => sum + inc.amount, 0)
@@ -66,45 +74,65 @@ export default function IncomePage() {
             Nenhuma renda registrada este mês.
           </p>
         ) : (
-          monthIncomes.map((inc) => (
-            <div key={inc.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="font-medium text-gray-800 text-sm">{inc.description}</p>
-                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    inc.type === 'fixed'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-purple-100 text-purple-700'
-                  }`}>
-                    {inc.type === 'fixed' ? 'Fixa' : 'Variável'}
+          monthIncomes.map((inc) => {
+            const isReceived = isReceivedInCycle(inc, cycleStart, cycleEnd)
+            return (
+              <div key={inc.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="font-medium text-gray-800 text-sm">{inc.description}</p>
+                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      inc.type === 'fixed'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-purple-100 text-purple-700'
+                    }`}>
+                      {inc.type === 'fixed' ? 'Fixa' : 'Variável'}
+                    </span>
+                    {inc.paymentDay && (
+                      <span className="text-xs text-gray-400">dia {inc.paymentDay}</span>
+                    )}
+                    {inc.isRecurring && (
+                      <span className="text-xs text-green-600">recorrente</span>
+                    )}
+                    {isReceived && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                        Recebida
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => markIncomeReceived(inc.id, !isReceived)}
+                    className={`text-lg transition-colors ${
+                      isReceived ? 'text-green-500' : 'text-gray-300 hover:text-green-400'
+                    }`}
+                    aria-label={isReceived ? 'Marcar como não recebida' : 'Marcar como recebida'}
+                    title={isReceived ? 'Marcar como não recebida' : 'Marcar como recebida'}
+                  >
+                    {isReceived ? '✓' : '○'}
+                  </button>
+                  <span className={`font-semibold ${isReceived ? 'text-gray-400' : 'text-green-700'}`}>
+                    {formatBRL(inc.amount)}
                   </span>
-                  {inc.paymentDay && (
-                    <span className="text-xs text-gray-400">dia {inc.paymentDay}</span>
-                  )}
-                  {inc.isRecurring && (
-                    <span className="text-xs text-green-600">recorrente</span>
-                  )}
+                  <button
+                    onClick={() => handleEdit(inc)}
+                    className="text-gray-400 hover:text-blue-600 text-sm"
+                    aria-label="Editar"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => deleteIncome(inc.id)}
+                    className="text-gray-400 hover:text-red-600 text-sm"
+                    aria-label="Excluir"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="font-semibold text-green-700">{formatBRL(inc.amount)}</span>
-                <button
-                  onClick={() => handleEdit(inc)}
-                  className="text-gray-400 hover:text-blue-600 text-sm"
-                  aria-label="Editar"
-                >
-                  ✏️
-                </button>
-                <button
-                  onClick={() => deleteIncome(inc.id)}
-                  className="text-gray-400 hover:text-red-600 text-sm"
-                  aria-label="Excluir"
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
-          ))
+            )
+          })
         )}
       </section>
 
