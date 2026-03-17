@@ -23,6 +23,12 @@ export interface IncomeListItem {
   isProjected: boolean
 }
 
+export function isReceivedInCycle(income: Income, cycleStart: string, cycleEnd: string): boolean {
+  if (!income.receivedAt) return false
+  const date = income.receivedAt.split('T')[0]  // 'YYYY-MM-DD'
+  return date >= cycleStart && date <= cycleEnd
+}
+
 export interface ForecastResult {
   // Fatura
   cardBillAccumulated: number  // = currentBill (valor manual do cartão)
@@ -93,6 +99,15 @@ export function calculateForecast(params: {
     daysUntilPayment = Math.ceil((nextPaymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
   }
 
+  // ── Ciclo de faturamento ──
+  // Se não há cartão, usa o mês corrente inteiro como ciclo
+  const billingCycle = creditCard
+    ? getCurrentBillingCycle(creditCard.closingDay, today)
+    : { start: new Date(year, month, 1), end: new Date(year, month + 1, 0) }
+
+  const cycleStart = billingCycle.start.toISOString().split('T')[0]
+  const cycleEnd = billingCycle.end.toISOString().split('T')[0]
+
   // ── Receitas do mês corrente ──
   const monthIncomes = incomes.filter((inc) => inc.month === currentMonth)
 
@@ -101,7 +116,9 @@ export function calculateForecast(params: {
   // - Rendas recorrentes já recebidas geram uma projeção para o próximo mês
   const incomeList: IncomeListItem[] = []
   for (const income of monthIncomes) {
-    const received = income.paymentDay != null ? income.paymentDay <= todayDay : true
+    const received = isReceivedInCycle(income, cycleStart, cycleEnd)
+      || (income.paymentDay == null)
+      || (income.paymentDay <= todayDay)
     incomeList.push({ income, received, isProjected: false })
 
     // Projeta próximo mês para recorrentes já recebidas
@@ -126,6 +143,7 @@ export function calculateForecast(params: {
   // 3. paymentDay == null → sem data definida, considerada já no saldo
   const incomeBeforePayment = monthIncomes.reduce((sum, inc) => {
     if (inc.paymentDay == null) return sum  // sem data → já no saldo
+    if (isReceivedInCycle(inc, cycleStart, cycleEnd)) return sum  // marcada recebida → já no saldo
 
     let nextOccurrence: Date
     if (inc.paymentDay > todayDay) {
@@ -143,15 +161,6 @@ export function calculateForecast(params: {
     }
     return sum
   }, 0)
-
-  // ── Ciclo de faturamento ──
-  // Se não há cartão, usa o mês corrente inteiro como ciclo
-  const billingCycle = creditCard
-    ? getCurrentBillingCycle(creditCard.closingDay, today)
-    : { start: new Date(year, month, 1), end: new Date(year, month + 1, 0) }
-
-  const cycleStart = billingCycle.start.toISOString().split('T')[0]
-  const cycleEnd = billingCycle.end.toISOString().split('T')[0]
 
   // ── Gastos da aba Gastos dentro do ciclo atual ──
   const cycleExpensesCard = expenses
