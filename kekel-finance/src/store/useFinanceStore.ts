@@ -46,6 +46,7 @@ const mapIncomeFromDB = (row: Record<string, unknown>): Income => ({
   month: row.month as string,
   paymentDay: row.payment_day != null ? Number(row.payment_day) : undefined,
   isRecurring: (row.is_recurring as boolean) ?? false,
+  receivedAt: row.received_at != null ? (row.received_at as string) : undefined,
   createdAt: row.created_at as string,
 })
 
@@ -334,6 +335,21 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
 
   getIncomeByMonth: (month) =>
     get().incomes.filter((inc) => inc.month === month),
+
+  markIncomeReceived: async (id, received) => {
+    const value = received ? new Date().toISOString() : null
+    const { error } = await supabase
+      .from('incomes')
+      .update({ received_at: value })
+      .eq('id', id)
+    if (!error) {
+      set((state) => ({
+        incomes: state.incomes.map((inc) =>
+          inc.id === id ? { ...inc, receivedAt: value ?? undefined } : inc
+        ),
+      }))
+    }
+  },
 
   // ── Fixed Expenses ──
   addFixedExpense: async (fe) => {
