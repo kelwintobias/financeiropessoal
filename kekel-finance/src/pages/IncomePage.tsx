@@ -103,6 +103,7 @@ export default function IncomePage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => markIncomeReceived(inc.id, !isReceived)}
                     className={`text-lg transition-colors ${
                       isReceived ? 'text-green-500' : 'text-gray-300 hover:text-green-400'
@@ -116,6 +117,7 @@ export default function IncomePage() {
                     {formatBRL(inc.amount)}
                   </span>
                   <button
+                    type="button"
                     onClick={() => handleEdit(inc)}
                     className="text-gray-400 hover:text-blue-600 text-sm"
                     aria-label="Editar"
@@ -123,6 +125,7 @@ export default function IncomePage() {
                     ✏️
                   </button>
                   <button
+                    type="button"
                     onClick={() => deleteIncome(inc.id)}
                     className="text-gray-400 hover:text-red-600 text-sm"
                     aria-label="Excluir"
@@ -138,6 +141,7 @@ export default function IncomePage() {
 
       {/* FAB */}
       <button
+        type="button"
         onClick={() => setShowForm(true)}
         className="fixed bottom-20 right-4 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-green-700 transition-colors z-10"
         aria-label="Adicionar renda"
