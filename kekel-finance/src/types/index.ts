@@ -40,6 +40,7 @@ export interface Income {
   month: string       // 'YYYY-MM'
   paymentDay?: number   // dia do mês em que cai o pagamento (1-31)
   isRecurring: boolean  // se é recorrente mensal
+  receivedAt?: string   // ISO timestamp; não-null = recebida neste ciclo
   createdAt: string
 }
 
@@ -104,6 +105,7 @@ export interface FinanceStore {
   addIncome: (income: Omit<Income, 'id' | 'createdAt'>) => void | Promise<void>
   updateIncome: (id: string, data: Partial<Omit<Income, 'id' | 'createdAt'>>) => void | Promise<void>
   deleteIncome: (id: string) => void | Promise<void>
+  markIncomeReceived: (id: string, received: boolean) => Promise<void>
   getIncomeByMonth: (month: string) => Income[]
   addFixedExpense: (fe: Omit<FixedExpense, 'id' | 'createdAt'>) => void | Promise<void>
   updateFixedExpense: (id: string, data: Partial<Omit<FixedExpense, 'id' | 'createdAt'>>) => void | Promise<void>
