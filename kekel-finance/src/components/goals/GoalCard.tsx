@@ -16,11 +16,10 @@ type EditingField = 'targetAmount' | 'currentAmount' | 'deadline' | null
 interface EditableNumberProps {
   field: 'targetAmount' | 'currentAmount'
   displayValue: string
-  initialValue: string
   editingField: EditingField
   editValue: string
   editError: boolean
-  onStartEdit: (field: EditingField, initialValue: string) => void
+  onStartEdit: () => void
   onConfirm: () => void
   onCancel: () => void
   onChangeValue: (value: string) => void
@@ -29,7 +28,6 @@ interface EditableNumberProps {
 function EditableNumber({
   field,
   displayValue,
-  initialValue,
   editingField,
   editValue,
   editError,
@@ -59,7 +57,7 @@ function EditableNumber({
   return (
     <span
       className="cursor-pointer underline decoration-dashed decoration-gray-400 hover:decoration-gray-600"
-      onClick={() => onStartEdit(field, initialValue)}
+      onClick={onStartEdit}
       title="Clique para editar"
     >
       {displayValue}
@@ -86,6 +84,7 @@ export default function GoalCard({ goal, compact = false }: GoalCardProps) {
     setEditingField(field)
     setEditValue(initialValue)
     setEditError(false)
+    setShowConfirmDelete(false)
   }
 
   const cancelEdit = () => {
@@ -109,12 +108,12 @@ export default function GoalCard({ goal, compact = false }: GoalCardProps) {
     cancelEdit()
   }
 
-  const handleComplete = () => {
-    updateGoal(goal.id, { status: 'completed' })
+  const handleComplete = async () => {
+    await updateGoal(goal.id, { status: 'completed' })
   }
 
-  const handleDelete = () => {
-    deleteGoal(goal.id)
+  const handleDelete = async () => {
+    await deleteGoal(goal.id)
     setShowConfirmDelete(false)
   }
 
@@ -162,11 +161,10 @@ export default function GoalCard({ goal, compact = false }: GoalCardProps) {
             <EditableNumber
               field="currentAmount"
               displayValue={formatBRL(goal.currentAmount)}
-              initialValue={String(goal.currentAmount)}
               editingField={editingField}
               editValue={editValue}
               editError={editError}
-              onStartEdit={startEdit}
+              onStartEdit={() => startEdit('currentAmount', String(goal.currentAmount))}
               onConfirm={confirmEdit}
               onCancel={cancelEdit}
               onChangeValue={(v) => { setEditValue(v); setEditError(false) }}
@@ -175,11 +173,10 @@ export default function GoalCard({ goal, compact = false }: GoalCardProps) {
             <EditableNumber
               field="targetAmount"
               displayValue={formatBRL(goal.targetAmount)}
-              initialValue={String(goal.targetAmount)}
               editingField={editingField}
               editValue={editValue}
               editError={editError}
-              onStartEdit={startEdit}
+              onStartEdit={() => startEdit('targetAmount', String(goal.targetAmount))}
               onConfirm={confirmEdit}
               onCancel={cancelEdit}
               onChangeValue={(v) => { setEditValue(v); setEditError(false) }}
