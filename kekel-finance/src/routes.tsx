@@ -6,6 +6,7 @@ import GoalsPage from '@/pages/GoalsPage'
 import IncomePage from '@/pages/IncomePage'
 import FixedExpensesPage from '@/pages/FixedExpensesPage'
 import CardPage from '@/pages/CardPage'
+import CreditPage from '@/pages/CreditPage'
 
 export default function AppRoutes() {
   return (
@@ -17,6 +18,7 @@ export default function AppRoutes() {
         <Route path="fixed" element={<FixedExpensesPage />} />
         <Route path="goals" element={<GoalsPage />} />
         <Route path="card" element={<CardPage />} />
+        <Route path="credit" element={<CreditPage />} />
       </Route>
     </Routes>
   )
