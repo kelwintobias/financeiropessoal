@@ -385,13 +385,13 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
     if (data.description !== undefined) updatePayload.description = data.description
     if (data.amount !== undefined) updatePayload.amount = data.amount
     if (data.categoryId !== undefined) updatePayload.category_id = data.categoryId ?? null
-    if (data.recurrenceType !== undefined) updatePayload.recurrence_type = data.recurrenceType ?? null
-    if (data.recurrenceWeekdays !== undefined) updatePayload.recurrence_weekdays = data.recurrenceWeekdays ?? null
-    if (data.recurrenceDates !== undefined) updatePayload.recurrence_dates = data.recurrenceDates ?? null
+    updatePayload.recurrence_type = data.recurrenceType ?? null
+    updatePayload.recurrence_weekdays = data.recurrenceWeekdays ?? null
+    updatePayload.recurrence_dates = data.recurrenceDates ?? null
     // When setting recurrenceType, clear billingDay; when clearing it, use whatever billingDay was passed
     if (data.recurrenceType) {
       updatePayload.billing_day = null
-    } else if (data.billingDay !== undefined) {
+    } else {
       updatePayload.billing_day = data.billingDay ?? null
     }
     if (data.paymentMethod !== undefined) updatePayload.payment_method = data.paymentMethod

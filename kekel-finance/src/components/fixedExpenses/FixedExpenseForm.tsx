@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import type { FixedExpense } from '@/types'
-import { getCurrentBillingCycle, calcRecurringFixedTotal, formatBRL } from '@/utils/forecastUtils'
+import { getCurrentBillingCycle, calcRecurringFixedTotal, formatBRL, toLocalDateStr } from '@/utils/forecastUtils'
 
 interface FixedExpenseFormProps {
   editing?: FixedExpense
@@ -362,7 +362,7 @@ export default function FixedExpenseForm({ editing, onClose }: FixedExpenseFormP
                 {getCycleDates().map((dateStr) => {
                   const d = new Date(dateStr + 'T12:00:00')
                   const selected = recurrenceDates.includes(dateStr)
-                  const isPast = dateStr <= new Date().toISOString().split('T')[0]
+                  const isPast = dateStr <= toLocalDateStr(new Date())
                   return (
                     <button
                       key={dateStr}

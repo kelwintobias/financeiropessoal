@@ -1,5 +1,9 @@
 import type { Income, FixedExpense, CreditCard, Expense } from '@/types'
 
+export function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function getCurrentBillingCycle(closingDay: number, today: Date): { start: Date; end: Date } {
   const year = today.getFullYear()
   const month = today.getMonth()
@@ -74,7 +78,7 @@ export function calcRecurringFixedTotal(
   cycleEnd: string,
   today: Date
 ): number {
-  const todayStr = today.toISOString().split('T')[0]
+  const todayStr = toLocalDateStr(today)
   let total = 0
 
   for (const fe of fixedExpenses) {
@@ -87,7 +91,7 @@ export function calcRecurringFixedTotal(
       // Iterate from tomorrow to cycleEnd inclusive
       const cursor = new Date(today)
       cursor.setDate(cursor.getDate() + 1)
-      while (cursor.toISOString().split('T')[0] <= cycleEnd) {
+      while (toLocalDateStr(cursor) <= cycleEnd) {
         if (weekdays.includes(cursor.getDay())) {
           total += fe.amount
         }
@@ -145,8 +149,8 @@ export function calculateForecast(params: {
     ? getCurrentBillingCycle(creditCard.closingDay, today)
     : { start: new Date(year, month, 1), end: new Date(year, month + 1, 0) }
 
-  const cycleStart = billingCycle.start.toISOString().split('T')[0]
-  const cycleEnd = billingCycle.end.toISOString().split('T')[0]
+  const cycleStart = toLocalDateStr(billingCycle.start)
+  const cycleEnd = toLocalDateStr(billingCycle.end)
 
   // ── Receitas do mês corrente ──
   const monthIncomes = incomes.filter((inc) => inc.month === currentMonth)

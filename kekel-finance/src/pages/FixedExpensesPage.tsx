@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import FixedExpenseForm from '@/components/fixedExpenses/FixedExpenseForm'
 import type { FixedExpense } from '@/types'
-import { calcRecurringFixedTotal, getCurrentBillingCycle, formatBRL } from '@/utils/forecastUtils'
+import { calcRecurringFixedTotal, getCurrentBillingCycle, formatBRL, toLocalDateStr } from '@/utils/forecastUtils'
 
 const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -12,13 +12,13 @@ export default function FixedExpensesPage() {
   const [editing, setEditing] = useState<FixedExpense | undefined>()
 
   const today = useMemo(() => new Date(), [])
-  const todayStr = useMemo(() => today.toISOString().split('T')[0], [today])
+  const todayStr = useMemo(() => toLocalDateStr(today), [today])
 
   const cycleEnd = useMemo(() => {
     if (creditCard) {
-      return getCurrentBillingCycle(creditCard.closingDay, today).end.toISOString().split('T')[0]
+      return toLocalDateStr(getCurrentBillingCycle(creditCard.closingDay, today).end)
     }
-    return new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+    return toLocalDateStr(new Date(today.getFullYear(), today.getMonth() + 1, 0))
   }, [creditCard, today])
 
   const activeTotal = fixedExpenses
