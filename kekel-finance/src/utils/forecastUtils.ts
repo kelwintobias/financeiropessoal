@@ -243,9 +243,9 @@ export function calculateForecast(params: {
   const realAccountBalance = manualBalance - cycleExpensesCash - fixedRecurringCash  // pode ser negativo
 
   // ── Disponível para gastar ──
-  // = saldo + rendas antes do pagamento - fatura total - gastos do ciclo em dinheiro - meta
+  // = saldo + rendas antes do pagamento - fatura total - gastos do ciclo em dinheiro - fixos recorrentes em dinheiro - meta
   const quantoPodeGastar =
-    manualBalance + incomeBeforePayment - cardBillForecast - cycleExpensesCash - monthlyGoal
+    manualBalance + incomeBeforePayment - cardBillForecast - cycleExpensesCash - fixedRecurringCash - monthlyGoal
 
   // Legacy
   const rendaMensal = monthIncomes.reduce((sum, inc) => sum + inc.amount, 0)

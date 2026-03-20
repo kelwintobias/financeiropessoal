@@ -180,4 +180,16 @@ describe('calculateForecast — recurring fixed expenses', () => {
     // invariant: alreadyBilled + pending === totalFixedActive
     expect(result.fixedAlreadyBilled + result.fixedPending).toBe(result.totalFixedActive)
   })
+
+  it('cash recurring expense reduces quantoPodeGastar', () => {
+    const recurring = fe({
+      recurrenceType: 'weekdays',
+      recurrenceWeekdays: [1], // Mon → 3 occurrences (Mar 23, Mar 30, Apr 6)
+      amount: 50,
+      paymentMethod: 'cash',
+    })
+    const result = calculateForecast({ ...baseParams, fixedExpenses: [recurring] })
+    // quantoPodeGastar = 1000 + 0 (incomeBeforePayment) - 200 (cardBill) - 0 (cycleExpensesCash) - 150 (fixedRecurringCash) - 0 (goal)
+    expect(result.quantoPodeGastar).toBe(650)
+  })
 })
