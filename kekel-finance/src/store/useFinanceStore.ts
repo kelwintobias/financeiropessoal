@@ -59,6 +59,9 @@ const mapFixedExpenseFromDB = (row: Record<string, unknown>): FixedExpense => ({
   paymentMethod: (row.payment_method as FixedExpense['paymentMethod']) ?? 'card',
   isActive: row.is_active as boolean,
   createdAt: row.created_at as string,
+  recurrenceType: (row.recurrence_type as FixedExpense['recurrenceType']) ?? undefined,
+  recurrenceWeekdays: (row.recurrence_weekdays as number[] | null) ?? undefined,
+  recurrenceDates: (row.recurrence_dates as string[] | null) ?? undefined,
 })
 
 const mapCreditCardFromDB = (row: Record<string, unknown>): CreditCard => ({
@@ -361,9 +364,12 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
         description: fe.description,
         amount: fe.amount,
         category_id: fe.categoryId ?? null,
-        billing_day: fe.billingDay ?? null,
+        billing_day: fe.recurrenceType ? null : (fe.billingDay ?? null),
         payment_method: fe.paymentMethod,
         is_active: fe.isActive,
+        recurrence_type: fe.recurrenceType ?? null,
+        recurrence_weekdays: fe.recurrenceWeekdays ?? null,
+        recurrence_dates: fe.recurrenceDates ?? null,
       })
       .select()
       .single()
@@ -379,7 +385,15 @@ export const useFinanceStore = create<FinanceStore & { _hydrated: boolean; _hydr
     if (data.description !== undefined) updatePayload.description = data.description
     if (data.amount !== undefined) updatePayload.amount = data.amount
     if (data.categoryId !== undefined) updatePayload.category_id = data.categoryId ?? null
-    if (data.billingDay !== undefined) updatePayload.billing_day = data.billingDay ?? null
+    if (data.recurrenceType !== undefined) updatePayload.recurrence_type = data.recurrenceType ?? null
+    if (data.recurrenceWeekdays !== undefined) updatePayload.recurrence_weekdays = data.recurrenceWeekdays ?? null
+    if (data.recurrenceDates !== undefined) updatePayload.recurrence_dates = data.recurrenceDates ?? null
+    // When setting recurrenceType, clear billingDay; when clearing it, use whatever billingDay was passed
+    if (data.recurrenceType) {
+      updatePayload.billing_day = null
+    } else if (data.billingDay !== undefined) {
+      updatePayload.billing_day = data.billingDay ?? null
+    }
     if (data.paymentMethod !== undefined) updatePayload.payment_method = data.paymentMethod
     if (data.isActive !== undefined) updatePayload.is_active = data.isActive
 
