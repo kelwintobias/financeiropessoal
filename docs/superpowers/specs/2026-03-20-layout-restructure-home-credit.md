@@ -21,14 +21,20 @@ Manter apenas:
 - Título "Dashboard"
 - Seção "Saldo em Conta" (Section 4 atual)
 
-Remover completamente:
+Remover completamente do JSX:
 - Section 1: "Disponível para gastar"
 - Section 2: "Situação da Fatura"
 - Section 3: "Previsão de Receitas"
 
-Imports a remover: `calculateForecast`, `creditCard`, `updateBillAndRecord`, `updateMonthlyGoal`, `incomes`, `expenses`, `fixedExpenses`, todos os destructures de `forecast` (exceto `accountBalance`, `realAccountBalance`, `cycleExpensesCash`), e helpers de data (`closingDate`, `paymentDate`, `formatDay`, `limitPercent`, `formatCycleRange`).
+**`calculateForecast` é mantido** em DashboardPage — a seção "Saldo em Conta" usa `accountBalance`, `realAccountBalance` e `cycleExpensesCash` que vêm do forecast. Portanto `incomes`, `expenses`, `fixedExpenses`, `creditCard` e `manualBalance` continuam sendo passados para `calculateForecast`.
 
-`EditableAmount` deixa de ser definido em `DashboardPage.tsx` e passa a ser importado de `@/components/ui/EditableAmount`.
+Destructures do forecast a manter: apenas `{ accountBalance, realAccountBalance, cycleExpensesCash }`.
+
+Remover do store: `updateBillAndRecord`, `updateMonthlyGoal`.
+
+Remover helpers de data/UI que eram exclusivos das seções removidas: `closingDate`, `paymentDate`, `formatDay`, `limitPercent`, `formatCycleRange`, e todos os outros destructures do forecast não listados acima (`spendingPower`, `cardBillAccumulated`, `cardBillForecast`, `daysUntilClosing`, `daysUntilPayment`, `incomeReceived`, `incomePending`, `incomeList`, `fixedAlreadyBilled`, `fixedPending`, `cycleExpensesCard`, `cycleStart`, `cycleEnd`, `incomeBeforePayment`, `quantoPodeGastar`).
+
+`EditableAmount` deixa de ser definido inline em `DashboardPage.tsx` e passa a ser importado de `@/components/ui/EditableAmount`.
 
 ---
 
@@ -36,15 +42,19 @@ Imports a remover: `calculateForecast`, `creditCard`, `updateBillAndRecord`, `up
 
 **Arquivo:** `src/pages/CreditPage.tsx` (criar)
 
-Contém as seções migradas do Dashboard na ordem:
-1. "Disponível para gastar" (painel verde/vermelho com `quantoPodeGastar`)
-2. "Situação da Fatura" (cartão, fatura acumulada, fixos pendentes, gastos no ciclo, fechamento, limite)
+Contém as seções migradas do Dashboard na ordem (código copiado verbatim das linhas 169–289 de DashboardPage.tsx):
+1. Section 1: "Disponível para gastar" (painel verde/vermelho, linhas 170–217)
+2. Section 2: "Situação da Fatura" (linhas 219–289)
 
 Usa `calculateForecast` com todos os dados necessários (incomes, expenses, fixedExpenses, creditCard, userSettings).
 
+Destructures do forecast usados: `spendingPower`, `cardBillAccumulated`, `cardBillForecast`, `daysUntilClosing`, `daysUntilPayment`, `incomeBeforePayment`, `accountBalance`, `cycleExpensesCash`, `cycleExpensesCard`, `fixedAlreadyBilled`, `fixedPending`, `cycleStart`, `cycleEnd`, `quantoPodeGastar`.
+
 Usa `EditableAmount` importado de `@/components/ui/EditableAmount`.
 
-Título da página: "Crédito"
+**Título da página:** `<h1 className="text-xl font-bold text-gray-800 mb-4">💳 Crédito</h1>`
+
+**Imports:** `Link` (react-router-dom), `useFinanceStore`, `currentMonth` (budgetUtils), `calculateForecast` + `formatBRL` (forecastUtils), `EditableAmount` (@/components/ui/EditableAmount).
 
 ---
 
@@ -52,7 +62,7 @@ Título da página: "Crédito"
 
 **Arquivo:** `src/components/ui/EditableAmount.tsx` (criar)
 
-Mover o componente `EditableAmount` que hoje está inline em `DashboardPage.tsx` para este arquivo dedicado. Interface mantida:
+Extração pura — zero mudanças no comportamento, visual ou assinatura. O componente é copiado integralmente de `DashboardPage.tsx` (linhas 7–74) para o novo arquivo e exportado como `export default`. Interface mantida exatamente:
 
 ```ts
 interface EditableAmountProps {
@@ -61,6 +71,8 @@ interface EditableAmountProps {
   label: string
 }
 ```
+
+O componente internamente usa `useState`, `useRef` do React — esses imports vão junto no novo arquivo.
 
 ---
 
