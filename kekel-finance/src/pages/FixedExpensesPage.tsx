@@ -2,14 +2,21 @@ import { useState } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import FixedExpenseForm from '@/components/fixedExpenses/FixedExpenseForm'
 import type { FixedExpense } from '@/types'
+import { calcRecurringFixedTotal, getCurrentBillingCycle, formatBRL } from '@/utils/forecastUtils'
 
-const formatBRL = (value: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 export default function FixedExpensesPage() {
-  const { fixedExpenses, deleteFixedExpense, toggleFixedExpense, categories } = useFinanceStore()
+  const { fixedExpenses, deleteFixedExpense, toggleFixedExpense, categories, creditCard } = useFinanceStore()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<FixedExpense | undefined>()
+
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+
+  const cycleEnd = creditCard
+    ? getCurrentBillingCycle(creditCard.closingDay, today).end.toISOString().split('T')[0]
+    : new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
 
   const activeTotal = fixedExpenses
     .filter((fe) => fe.isActive)
@@ -33,8 +40,41 @@ export default function FixedExpensesPage() {
     setEditing(undefined)
   }
 
+  function getRecurrenceDetail(fe: FixedExpense): string | null {
+    if (!fe.recurrenceType) return null
+
+    const cycleTotal = calcRecurringFixedTotal([fe], cycleEnd, today)
+
+    if (fe.recurrenceType === 'weekdays') {
+      const weekdays = fe.recurrenceWeekdays ?? []
+      if (weekdays.length === 0) return null
+
+      let count = 0
+      const cursor = new Date(today)
+      cursor.setDate(cursor.getDate() + 1)
+      while (cursor.toISOString().split('T')[0] <= cycleEnd) {
+        if (weekdays.includes(cursor.getDay())) {
+          count++
+        }
+        cursor.setDate(cursor.getDate() + 1)
+      }
+
+      const labels = weekdays.map((d) => WEEKDAY_NAMES[d]).join(', ')
+      return `${labels}  ·  ${count} ocorrência${count !== 1 ? 's' : ''}  ·  ${formatBRL(cycleTotal)} este ciclo`
+    }
+
+    if (fe.recurrenceType === 'specific') {
+      const dates = fe.recurrenceDates ?? []
+      const count = dates.filter((d) => d > todayStr && d <= cycleEnd).length
+      return `Datas específicas  ·  ${count} ocorrência${count !== 1 ? 's' : ''}  ·  ${formatBRL(cycleTotal)} este ciclo`
+    }
+
+    return null
+  }
+
   function renderItem(fe: FixedExpense) {
     const catName = getCategoryName(fe.categoryId)
+    const recurrenceDetail = getRecurrenceDetail(fe)
     return (
       <div key={fe.id} className={`flex items-center justify-between px-4 py-3 ${!fe.isActive ? 'opacity-50' : ''}`}>
         <div className="flex-1 min-w-0">
@@ -45,6 +85,9 @@ export default function FixedExpensesPage() {
               <span className="text-xs text-blue-500 font-medium">vence dia {fe.billingDay}</span>
             )}
           </div>
+          {recurrenceDetail && (
+            <p className="text-xs text-gray-500 mt-0.5">{recurrenceDetail}</p>
+          )}
         </div>
         <div className="flex items-center gap-2 ml-2">
           <span className="font-semibold text-gray-700 text-sm">{formatBRL(fe.amount)}</span>
