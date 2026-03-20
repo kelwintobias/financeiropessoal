@@ -45,7 +45,7 @@ export default function FixedExpenseForm({ editing, onClose }: FixedExpenseFormP
     const cycle = creditCard
       ? getCurrentBillingCycle(creditCard.closingDay, today)
       : { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date(today.getFullYear(), today.getMonth() + 1, 0) }
-    return { cycleStartDate: cycle.start, cycleEndDate: cycle.end, cycleEnd: cycle.end.toISOString().split('T')[0] }
+    return { cycleStartDate: cycle.start, cycleEndDate: cycle.end, cycleEnd: toLocalDateStr(cycle.end) }
   }, [creditCard, today])
 
   const previewExpense: FixedExpense = useMemo(() => ({
@@ -121,7 +121,7 @@ export default function FixedExpenseForm({ editing, onClose }: FixedExpenseFormP
     const dates: string[] = []
     const cursor = new Date(cycleStartDate)
     while (cursor <= cycleEndDate) {
-      dates.push(cursor.toISOString().split('T')[0])
+      dates.push(toLocalDateStr(cursor))
       cursor.setDate(cursor.getDate() + 1)
     }
     return dates
