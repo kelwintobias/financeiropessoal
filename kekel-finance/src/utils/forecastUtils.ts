@@ -49,6 +49,9 @@ export interface ForecastResult {
   totalFixedActive: number
   fixedAlreadyBilled: number  // fixos com billingDay <= hoje (já na fatura atual)
   fixedPending: number        // fixos com billingDay > hoje (ainda não cobrados)
+  fixedRecurring: number      // total (card + cash) recurring in this cycle
+  fixedRecurringCard: number
+  fixedRecurringCash: number
   cycleExpensesCard: number  // gastos do ciclo pagos no cartão
   cycleExpensesCash: number  // gastos do ciclo pagos em dinheiro/PIX
 
@@ -64,6 +67,43 @@ export interface ForecastResult {
   // Legacy
   spendingPower: number
   rendaMensal: number
+}
+
+export function calcRecurringFixedTotal(
+  fixedExpenses: FixedExpense[],
+  cycleEnd: string,
+  today: Date
+): number {
+  const todayStr = today.toISOString().split('T')[0]
+  let total = 0
+
+  for (const fe of fixedExpenses) {
+    if (!fe.recurrenceType) continue
+
+    if (fe.recurrenceType === 'weekdays') {
+      const weekdays = fe.recurrenceWeekdays ?? []
+      if (weekdays.length === 0) continue
+
+      // Iterate from tomorrow to cycleEnd inclusive
+      const cursor = new Date(today)
+      cursor.setDate(cursor.getDate() + 1)
+      while (cursor.toISOString().split('T')[0] <= cycleEnd) {
+        if (weekdays.includes(cursor.getDay())) {
+          total += fe.amount
+        }
+        cursor.setDate(cursor.getDate() + 1)
+      }
+    } else if (fe.recurrenceType === 'specific') {
+      const dates = fe.recurrenceDates ?? []
+      for (const d of dates) {
+        if (d > todayStr && d <= cycleEnd) {
+          total += fe.amount
+        }
+      }
+    }
+  }
+
+  return total
 }
 
 export function calculateForecast(params: {
@@ -173,25 +213,34 @@ export function calculateForecast(params: {
 
   // ── Custos fixos ──
   const activeFixed = fixedExpenses.filter((fe) => fe.isActive)
-  const totalFixedActive = activeFixed.reduce((sum, fe) => sum + fe.amount, 0)
 
-  // Fixos cujo billingDay já passou → já estão incluídos na fatura atual (manual)
-  const fixedAlreadyBilled = activeFixed
+  // Split: monthly (billingDay-based) vs recurring (weekdays/specific)
+  const monthlyFixed = activeFixed.filter((fe) => !fe.recurrenceType)
+  const recurringFixed = activeFixed.filter((fe) => !!fe.recurrenceType)
+
+  // Monthly fixed — existing logic, restricted to monthlyFixed only
+  const totalFixedActive = monthlyFixed.reduce((sum, fe) => sum + fe.amount, 0)
+  const fixedAlreadyBilled = monthlyFixed
     .filter((fe) => fe.billingDay != null && fe.billingDay <= todayDay)
     .reduce((sum, fe) => sum + fe.amount, 0)
-
-  // Fixos cujo billingDay ainda não passou → precisam ser somados à fatura
   const fixedPending = totalFixedActive - fixedAlreadyBilled
+
+  // Recurring fixed — split by payment method
+  const recurringCard = recurringFixed.filter((fe) => fe.paymentMethod === 'card')
+  const recurringCash  = recurringFixed.filter((fe) => fe.paymentMethod === 'cash')
+  const fixedRecurringCard = calcRecurringFixedTotal(recurringCard, cycleEnd, today)
+  const fixedRecurringCash  = calcRecurringFixedTotal(recurringCash,  cycleEnd, today)
+  const fixedRecurring = fixedRecurringCard + fixedRecurringCash
 
   // ── Fatura ──
   const cardBillAccumulated = creditCard?.currentBill ?? 0
   // Fatura total = fatura atual + fixos pendentes + gastos do ciclo no cartão
   // (fixos já cobrados já estão dentro de cardBillAccumulated)
-  const cardBillForecast = cardBillAccumulated + fixedPending + cycleExpensesCard
+  const cardBillForecast = cardBillAccumulated + fixedPending + fixedRecurringCard + cycleExpensesCard
 
   // ── Saldo real em conta ──
   const accountBalance = manualBalance
-  const realAccountBalance = manualBalance - cycleExpensesCash  // pode ser negativo
+  const realAccountBalance = manualBalance - cycleExpensesCash - fixedRecurringCash  // pode ser negativo
 
   // ── Disponível para gastar ──
   // = saldo + rendas antes do pagamento - fatura total - gastos do ciclo em dinheiro - meta
@@ -215,6 +264,9 @@ export function calculateForecast(params: {
     totalFixedActive,
     fixedAlreadyBilled,
     fixedPending,
+    fixedRecurring,
+    fixedRecurringCard,
+    fixedRecurringCash,
     cycleExpensesCard,
     cycleExpensesCash,
     cycleStart,
