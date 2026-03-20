@@ -56,8 +56,8 @@ export interface ForecastResult {
   fixedRecurring: number      // total (card + cash) recurring in this cycle
   fixedRecurringCard: number
   fixedRecurringCash: number
-  cycleExpensesCard: number  // gastos do ciclo pagos no cartão
-  cycleExpensesCash: number  // gastos do ciclo pagos em dinheiro/PIX
+  cycleExpensesCard: number  // gastos futuros do ciclo pagos no cartão
+  cycleExpensesCash: number  // gastos futuros do ciclo pagos em dinheiro/PIX
 
   // Ciclo de faturamento
   cycleStart: string  // 'YYYY-MM-DD'
@@ -151,6 +151,7 @@ export function calculateForecast(params: {
 
   const cycleStart = toLocalDateStr(billingCycle.start)
   const cycleEnd = toLocalDateStr(billingCycle.end)
+  const todayStr = toLocalDateStr(today)
 
   // ── Receitas do mês corrente ──
   const monthIncomes = incomes.filter((inc) => inc.month === currentMonth)
@@ -207,12 +208,14 @@ export function calculateForecast(params: {
   }, 0)
 
   // ── Gastos da aba Gastos dentro do ciclo atual ──
+  // gastos FUTUROS do ciclo pagos no cartão (passados já estão em cardBillAccumulated)
   const cycleExpensesCard = expenses
-    .filter((e) => e.paymentMethod === 'card' && e.date >= cycleStart && e.date <= cycleEnd)
+    .filter((e) => e.paymentMethod === 'card' && e.date >= cycleStart && e.date <= cycleEnd && e.date > todayStr)
     .reduce((sum, e) => sum + e.amount, 0)
 
+  // gastos FUTUROS do ciclo pagos em dinheiro/PIX (passados já estão em manualBalance)
   const cycleExpensesCash = expenses
-    .filter((e) => e.paymentMethod === 'cash' && e.date >= cycleStart && e.date <= cycleEnd)
+    .filter((e) => e.paymentMethod === 'cash' && e.date >= cycleStart && e.date <= cycleEnd && e.date > todayStr)
     .reduce((sum, e) => sum + e.amount, 0)
 
   // ── Custos fixos ──

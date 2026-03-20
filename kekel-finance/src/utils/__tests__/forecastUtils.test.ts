@@ -192,4 +192,33 @@ describe('calculateForecast — recurring fixed expenses', () => {
     // quantoPodeGastar = 1000 + 0 (incomeBeforePayment) - 200 (cardBill) - 0 (cycleExpensesCash) - 150 (fixedRecurringCash) - 0 (goal)
     expect(result.quantoPodeGastar).toBe(650)
   })
+
+  it('excludes past expenses from cycleExpensesCard and cycleExpensesCash', () => {
+    const today = new Date('2024-03-15')
+    const pastExpense: Expense = {
+      id: '1', amount: 100, categoryId: 'cat1',
+      date: '2024-03-10',  // past date
+      paymentMethod: 'card', createdAt: '',
+    }
+    const futureExpense: Expense = {
+      id: '2', amount: 50, categoryId: 'cat1',
+      date: '2024-03-20',  // future date
+      paymentMethod: 'card', createdAt: '',
+    }
+    const result = calculateForecast({
+      today,
+      incomes: [],
+      expenses: [pastExpense, futureExpense],
+      fixedExpenses: [],
+      creditCard: null,
+      manualBalance: 1000,
+      monthlyGoal: 0,
+      currentMonth: '2024-03',
+    })
+    // Only future expense counted
+    expect(result.cycleExpensesCard).toBe(50)
+    // cardBillForecast should not include past expense
+    // = 0 (currentBill) + 0 (fixedPending) + 0 (fixedRecurringCard) + 50 (future card)
+    expect(result.cardBillForecast).toBe(50)
+  })
 })

@@ -1,7 +1,7 @@
 {
   "name": "kekelfinance",
   "version": "0.1.0",
-  "description": "Kekel Finance — AIOS Project",
+  "description": "Kekel Finance",
   "private": true,
   "scripts": {
     "dev": "npm run dev --prefix kekel-finance",
