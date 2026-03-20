@@ -41,11 +41,12 @@ export default function FixedExpenseForm({ editing, onClose }: FixedExpenseFormP
   }, [editingId])
 
   const today = useMemo(() => new Date(), [])
-  const { start: cycleStartDate, end: cycleEndDate } = creditCard
-    ? getCurrentBillingCycle(creditCard.closingDay, today)
-    : { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date(today.getFullYear(), today.getMonth() + 1, 0) }
-
-  const cycleEnd = cycleEndDate.toISOString().split('T')[0]
+  const { cycleStartDate, cycleEndDate, cycleEnd } = useMemo(() => {
+    const cycle = creditCard
+      ? getCurrentBillingCycle(creditCard.closingDay, today)
+      : { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date(today.getFullYear(), today.getMonth() + 1, 0) }
+    return { cycleStartDate: cycle.start, cycleEndDate: cycle.end, cycleEnd: cycle.end.toISOString().split('T')[0] }
+  }, [creditCard, today])
 
   const previewExpense: FixedExpense = useMemo(() => ({
     id: '_preview',
@@ -354,6 +355,9 @@ export default function FixedExpenseForm({ editing, onClose }: FixedExpenseFormP
               <div className="grid grid-cols-7 gap-1 mb-4">
                 {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
                   <div key={i} className="text-center text-xs text-gray-400 font-medium py-1">{d}</div>
+                ))}
+                {Array.from({ length: new Date(cycleStartDate).getDay() }, (_, i) => (
+                  <div key={`offset-${i}`} />
                 ))}
                 {getCycleDates().map((dateStr) => {
                   const d = new Date(dateStr + 'T12:00:00')
