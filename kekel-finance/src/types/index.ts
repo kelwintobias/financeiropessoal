@@ -47,12 +47,15 @@ export interface Income {
 export interface FixedExpense {
   id: string
   description: string
-  amount: number
+  amount: number              // per-occurrence value when recurrenceType is defined; monthly value when undefined
   categoryId?: string
-  billingDay?: number   // dia do mês em que é cobrado (1–31)
+  billingDay?: number         // ignored in forecast when recurrenceType is defined
   paymentMethod: 'card' | 'cash'
   isActive: boolean
   createdAt: string
+  recurrenceType?: 'weekdays' | 'specific'
+  recurrenceWeekdays?: number[]   // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  recurrenceDates?: string[]      // 'YYYY-MM-DD' format
 }
 
 export interface CreditCard {
