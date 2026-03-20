@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import FixedExpenseForm from '@/components/fixedExpenses/FixedExpenseForm'
 import type { FixedExpense } from '@/types'
@@ -11,12 +11,15 @@ export default function FixedExpensesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<FixedExpense | undefined>()
 
-  const today = new Date()
-  const todayStr = today.toISOString().split('T')[0]
+  const today = useMemo(() => new Date(), [])
+  const todayStr = useMemo(() => today.toISOString().split('T')[0], [today])
 
-  const cycleEnd = creditCard
-    ? getCurrentBillingCycle(creditCard.closingDay, today).end.toISOString().split('T')[0]
-    : new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+  const cycleEnd = useMemo(() => {
+    if (creditCard) {
+      return getCurrentBillingCycle(creditCard.closingDay, today).end.toISOString().split('T')[0]
+    }
+    return new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+  }, [creditCard, today])
 
   const activeTotal = fixedExpenses
     .filter((fe) => fe.isActive)
@@ -49,15 +52,7 @@ export default function FixedExpensesPage() {
       const weekdays = fe.recurrenceWeekdays ?? []
       if (weekdays.length === 0) return null
 
-      let count = 0
-      const cursor = new Date(today)
-      cursor.setDate(cursor.getDate() + 1)
-      while (cursor.toISOString().split('T')[0] <= cycleEnd) {
-        if (weekdays.includes(cursor.getDay())) {
-          count++
-        }
-        cursor.setDate(cursor.getDate() + 1)
-      }
+      const count = fe.amount > 0 ? Math.round(cycleTotal / fe.amount) : 0
 
       const labels = weekdays.map((d) => WEEKDAY_NAMES[d]).join(', ')
       return `${labels}  ·  ${count} ocorrência${count !== 1 ? 's' : ''}  ·  ${formatBRL(cycleTotal)} este ciclo`
@@ -81,7 +76,7 @@ export default function FixedExpensesPage() {
           <p className="font-medium text-gray-800 text-sm truncate">{fe.description}</p>
           <div className="flex items-center gap-2 mt-0.5">
             {catName && <span className="text-xs text-gray-400">{catName}</span>}
-            {fe.billingDay && (
+            {fe.billingDay && !fe.recurrenceType && (
               <span className="text-xs text-blue-500 font-medium">vence dia {fe.billingDay}</span>
             )}
           </div>
