@@ -11,60 +11,93 @@ Redesenhar o `GoalCard` para:
 
 ## Contexto
 
-Arquivo principal: `src/components/goals/GoalCard.tsx`
+- Arquivo: `src/components/goals/GoalCard.tsx`
+- Store: `updateGoal(id, data)` e `deleteGoal(id)` já existem
+- Interface `Goal`: `{ id, name, targetAmount, currentAmount, deadline?, status }`
 
-Store: `useFinanceStore` já expõe `updateGoal(id, data)` e `deleteGoal(id)`.
+---
 
-Interface `Goal`: `{ id, name, targetAmount, currentAmount, deadline?, status }`
+## Seção 1 — Botões de ação
 
-## Seção 1 — Substituição dos botões de ação
-
-### Botão "Meta concluída" (celebrativo)
-- **Visibilidade:** sempre visível para metas com `status === 'active'`
+### "Meta concluída" (celebrativo)
+- **Visibilidade:** sempre visível para `status === 'active'`, oculto em `compact`
 - **Estilo:** `bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl shadow-md`
 - **Ícone:** 🎉 à esquerda do texto "Meta concluída!"
+- **Aria:** `aria-label={`Concluir meta ${goal.name}`}`
 - **Ação:** `updateGoal(goal.id, { status: 'completed' })`
+- **Erro:** revert silencioso (sem mensagem ao usuário)
 
-### Botão "Remover" (discreto)
-- **Visibilidade:** sempre visível para metas com `status === 'active'`
+### "Remover" (discreto)
+- **Visibilidade:** sempre visível para `status === 'active'`, oculto em `compact`
 - **Estilo:** `text-xs text-gray-400 hover:text-red-400` — sem fundo, sem borda
 - **Posição:** canto inferior direito do card
-- **Comportamento:** ao clicar, exibe confirmação inline no próprio card:
+- **Aria:** `aria-label={`Remover meta ${goal.name}`}`
+- **Comportamento:** ao clicar, exibe confirmação inline imediatamente abaixo dos botões de ação:
   - Texto: "Remover esta meta?"
-  - Botões: `[Confirmar]` (vermelho sutil) e `[Cancelar]` (cinza)
-  - Confirmação chama `deleteGoal(goal.id)`
+  - `[Confirmar]` — `text-red-500 hover:text-red-700 text-sm font-medium`
+  - `[Cancelar]` — `text-gray-400 hover:text-gray-600 text-sm`
+  - Apenas [Confirmar] ou [Cancelar] fecham a confirmação; clicar fora e ESC não fecham
+  - [Confirmar] chama `deleteGoal(goal.id)`
+  - Erro: confirmação fecha, card permanece
 
 ### Removidos
-- Botão "📦 Arquivar" (`updateGoal({ status: 'archived' })`) — removido completamente
-- Botão "✅ Concluir" (que só aparecia em 100%) — substituído pelo botão celebrativo sempre visível
+- Botão "📦 Arquivar" — removido; metas já arquivadas continuam visíveis na GoalsPage
+- Botão "✅ Concluir" (aparecia só em 100%) — substituído pelo botão celebrativo
+- Botão "+ Registrar aporte" — removido completamente; substituído pela edição inline do Valor Atual
+
+---
 
 ## Seção 2 — Campos editáveis inline (click-to-edit)
 
-Cada campo exibe o valor atual como texto clicável. Ao clicar, o texto é substituído por um `<input>` com botões ✓ (confirmar) e ✕ (cancelar). Ao confirmar, chama `updateGoal` com o campo correspondente. Ao cancelar, restaura o valor original sem salvar.
+### Estados visuais
 
-Apenas um campo pode estar em modo de edição por vez.
+**Modo view (padrão):**
+- Valores exibidos como texto normal
+- Ao fazer hover sobre um campo editável: `cursor-pointer` + sublinhado pontilhado (`underline decoration-dashed decoration-gray-400`) para sinalizar editabilidade
+
+**Modo edit (ao clicar):**
+- Texto substituído por `<input>` com borda azul + botões ✓ (`text-green-600`) e ✕ (`text-gray-400`) imediatamente à direita
+- Fundo do input: `bg-gray-50 border border-blue-400 rounded px-1 text-sm`
+
+### Regras gerais
+- Apenas um campo em edição por vez
+- Clicar em outro campo editável cancela o atual sem salvar e abre o novo
+- Botão ✕ cancela sem salvar; botão ✓ valida e salva
+- Erro de rede/Supabase: revert silencioso ao valor anterior
+- Todos os campos editáveis ocultados em `compact`
 
 ### Campo: Valor Total
-- **Exibição normal:** parte da linha de progresso (ex: "R$ 500,00 de R$ 1.000,00")
-- **Edição:** `<input type="number" min="0.01" step="0.01">`
+- **Exibição:** `[R$ 500,00]` de `[R$ 1.000,00]` — ambos clicáveis individualmente
+- **Input:** `type="number" min="0.01" step="0.01"`
+- **Validação:** valor ≤ 0 → borda vermelha no input, não salva, mantém input aberto
+- **currentAmount > novoTargetAmount:** permitido; barra capa em 100% visualmente
 - **Salva:** `updateGoal(goal.id, { targetAmount: novoValor })`
 
 ### Campo: Valor Atual
-- **Exibição normal:** parte da linha de progresso
-- **Edição:** `<input type="number" min="0" step="0.01">`
+- **Exibição:** idem acima
+- **Input:** `type="number" min="0" step="0.01"`
+- **Validação:** valor negativo → borda vermelha, não salva
 - **Salva:** `updateGoal(goal.id, { currentAmount: novoValor })`
-- **Substitui:** o botão "Registrar aporte" é removido (a edição direta do valor atual torna-o redundante)
 
 ### Campo: Data (prazo)
-- **Exibição normal:** "Prazo: DD/MM/AAAA" ou "Sem prazo" se vazio
-- **Edição:** `<input type="date">` — campo opcional, pode ser limpo
+- **Exibição view:** "Prazo: DD/MM/AAAA" se existe; linha omitida se `deadline` é undefined
+- **Input:** `type="date"` — opcional; limpar e confirmar salva como `undefined` (remove o prazo, oculta a linha)
 - **Salva:** `updateGoal(goal.id, { deadline: novaData || undefined })`
+
+---
+
+## Barra de progresso
+
+- Fórmula: `Math.round((currentAmount / targetAmount) * 100)`, retorna 0 se targetAmount=0
+- Barra visual capa em 100%
+- **Cores mantidas exatamente como estão:** verde ≥100%, azul ≥60%, azul-claro <60%
+
+---
 
 ## Arquivos alterados
 
-- `src/components/goals/GoalCard.tsx` — único arquivo modificado
+- Apenas: `src/components/goals/GoalCard.tsx`
 
-## Comportamento preservado
-- Barra de progresso continua calculando em tempo real com base em `currentAmount / targetAmount`
-- Cards de metas concluídas/arquivadas existentes na `GoalsPage` não são alterados
-- Prop `compact` do `GoalCard` (usada em outros contextos) não exibe os botões de ação nem os campos editáveis — comportamento mantido
+## Comportamentos preservados
+- Prop `compact` não exibe botões de ação nem campos editáveis
+- Seção "Concluídas / Arquivadas" na `GoalsPage` não é alterada
