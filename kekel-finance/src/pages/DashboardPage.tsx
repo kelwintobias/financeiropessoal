@@ -11,6 +11,7 @@ export default function DashboardPage() {
     creditCard,
     userSettings,
     updateAccountBalance,
+    updateMonthlyGoal,
   } = useFinanceStore()
 
   const month = currentMonth()
@@ -43,6 +44,11 @@ export default function DashboardPage() {
             value={accountBalance}
             onSave={updateAccountBalance}
             label="Saldo atual"
+          />
+          <EditableAmount
+            value={monthlyGoal}
+            onSave={updateMonthlyGoal}
+            label="Meta de Saldo Final"
           />
           {cycleExpensesCash > 0 && (
             <>
