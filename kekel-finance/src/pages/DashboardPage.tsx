@@ -30,14 +30,22 @@ export default function DashboardPage() {
     currentMonth: month,
   })
 
-  const { accountBalance, realAccountBalance, cycleExpensesCash } = forecast
+  const { accountBalance, realAccountBalance, cycleExpensesCash, cycleEnd } = forecast
 
   const totalDisponivel = accountBalance - monthlyGoal
   const d = today.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
-  const diasRestantes = d === 0 ? 1 : 8 - d
-  // Dom=1, Seg=7, Ter=6, Qua=5, Qui=4, Sex=3, Sáb=2
-  const limiteDiario = diasRestantes > 0 ? totalDisponivel / 7 : 0
-  const disponivelAteDomingo = limiteDiario * diasRestantes
+  // Dias até domingo (hoje inclusive): Dom=1, Seg=7, Ter=6, Qua=5, Qui=4, Sex=3, Sáb=2
+  const diasAteDomingo = d === 0 ? 1 : 8 - d
+
+  // Dias restantes no ciclo de faturamento (hoje inclusive).
+  // cycleEnd é 'YYYY-MM-DD' (formato garantido por calculateForecast).
+  // Math.max(1,...) protege contra cycleEnd no passado.
+  const cycleEndDate = new Date(cycleEnd + 'T00:00:00')
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const diasNoCiclo = Math.max(1, Math.floor((cycleEndDate.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+
+  const gastoDiario = totalDisponivel / diasNoCiclo
+  const disponivelSemana = gastoDiario * diasAteDomingo
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6 pb-24">
@@ -85,25 +93,25 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-2 border-t border-gray-100 pt-3">
-          {/* Disponível até Domingo */}
+          {/* Disponível para esta Semana */}
           <div className="flex justify-between items-center">
             <div>
-              <span className="text-sm text-gray-600">Disponível até Domingo</span>
-              <p className="text-xs text-gray-400">{diasRestantes} dias (hoje inclusive)</p>
+              <span className="text-sm text-gray-600">Disponível para esta Semana</span>
+              <p className="text-xs text-gray-400">{diasAteDomingo} dias (hoje inclusive)</p>
             </div>
-            <span className={`text-xl font-semibold ${disponivelAteDomingo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {formatBRL(disponivelAteDomingo)}
+            <span className={`text-xl font-semibold ${disponivelSemana >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {formatBRL(disponivelSemana)}
             </span>
           </div>
 
-          {/* Limite Diário */}
+          {/* Gasto Diário */}
           <div className="flex justify-between items-center">
             <div>
-              <span className="text-sm text-gray-600">Limite Diário</span>
-              <p className="text-xs text-gray-400">por dia (base 7 dias)</p>
+              <span className="text-sm text-gray-600">Gasto Diário</span>
+              <p className="text-xs text-gray-400">por dia até fim do ciclo ({diasNoCiclo} dias)</p>
             </div>
-            <span className={`text-xl font-semibold ${limiteDiario >= 0 ? 'text-gray-700' : 'text-red-600'}`}>
-              {formatBRL(limiteDiario)}
+            <span className={`text-xl font-semibold ${gastoDiario >= 0 ? 'text-gray-700' : 'text-red-600'}`}>
+              {formatBRL(gastoDiario)}
             </span>
           </div>
         </div>
