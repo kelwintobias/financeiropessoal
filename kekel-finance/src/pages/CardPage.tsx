@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 
 export default function CardPage() {
@@ -9,15 +9,6 @@ export default function CardPage() {
   const [paymentDay, setPaymentDay] = useState(creditCard?.paymentDay ? String(creditCard.paymentDay) : '')
   const [creditLimit, setCreditLimit] = useState(creditCard?.creditLimit ? String(creditCard.creditLimit) : '')
   const [saved, setSaved] = useState(false)
-
-  useEffect(() => {
-    if (creditCard) {
-      setName(creditCard.name)
-      setClosingDay(String(creditCard.closingDay))
-      setPaymentDay(String(creditCard.paymentDay))
-      setCreditLimit(creditCard.creditLimit ? String(creditCard.creditLimit) : '')
-    }
-  }, [creditCard])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

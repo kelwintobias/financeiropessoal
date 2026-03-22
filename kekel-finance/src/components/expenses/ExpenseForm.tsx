@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import type { Expense } from '@/types'
 
@@ -21,16 +21,6 @@ export default function ExpenseForm({ editing, onClose, onAfterSave }: ExpenseFo
   const [description, setDescription] = useState(editing?.description ?? '')
   const [date, setDate] = useState(editing?.date ?? today())
   const [paymentMethod, setPaymentMethod] = useState<Expense['paymentMethod']>(editing?.paymentMethod ?? 'card')
-
-  useEffect(() => {
-    if (editing) {
-      setAmount(String(editing.amount))
-      setCategoryId(editing.categoryId)
-      setDescription(editing.description ?? '')
-      setDate(editing.date)
-      setPaymentMethod(editing.paymentMethod)
-    }
-  }, [editing])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

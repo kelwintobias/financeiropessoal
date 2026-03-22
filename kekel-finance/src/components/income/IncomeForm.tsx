@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import { currentMonth } from '@/utils/budgetUtils'
 import type { Income } from '@/types'
@@ -17,17 +17,6 @@ export default function IncomeForm({ editing, onClose }: IncomeFormProps) {
   const [month, setMonth] = useState(editing?.month ?? currentMonth())
   const [paymentDay, setPaymentDay] = useState(editing?.paymentDay ? String(editing.paymentDay) : '')
   const [isRecurring, setIsRecurring] = useState(editing?.isRecurring ?? false)
-
-  useEffect(() => {
-    if (editing) {
-      setDescription(editing.description)
-      setAmount(String(editing.amount))
-      setType(editing.type)
-      setMonth(editing.month)
-      setPaymentDay(editing.paymentDay ? String(editing.paymentDay) : '')
-      setIsRecurring(editing.isRecurring)
-    }
-  }, [editing])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
